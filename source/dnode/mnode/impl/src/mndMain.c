@@ -447,7 +447,7 @@ int32_t mndProcessSyncCtrlMsg(SRpcMsg *pMsg) {
   SSyncMgmt *pMgmt = &pMnode->syncMgmt;
   int32_t    code = 0;
 
-  mInfo("vgId:%d, mndProcessSyncCtrlMsg");
+  mInfo("vgId:%d, mndProcessSyncCtrlMsg", 1);
 
   if (!syncEnvIsStart()) {
     mError("failed to process sync msg:%p type:%s since syncEnv stop", pMsg, TMSG_INFO(pMsg->msgType));
@@ -467,7 +467,19 @@ int32_t mndProcessSyncCtrlMsg(SRpcMsg *pMsg) {
 
     mInfo("vgId:%d, do process TDMT_SYNC_HEARTBEAT, privateTerm:%ld ", 1, pSyncMsg->privateTerm);
 
+    do {
+      // reply
+
+      syncNodeOnHeartbeatCb(pSyncNode, pSyncMsg);
+
+    } while (0);
+
     syncHeartbeatDestroy(pSyncMsg);
+
+  } else if (pMsg->msgType == TDMT_SYNC_HEARTBEAT_REPLY) {
+    SyncHeartbeatReply *pSyncMsg = syncHeartbeatReplyFromRpcMsg2(pMsg);
+
+    mInfo("vgId:%d, do process TDMT_SYNC_HEARTBEAT_REPLY, privateTerm:%ld ", 1, pSyncMsg->privateTerm);
   }
 
   return 0;

@@ -2556,30 +2556,32 @@ static void syncNodeEqHeartbeatTimer(void* param, void* tmrId) {
   do {
     sInfo("FpEqCtrlMsg ...");
 
-    SyncHeartbeat* pSyncMsg = syncHeartbeatBuild(pSyncNode->vgId);
-    pSyncMsg->privateTerm = 1234;
+    for (int i = 0; i < pSyncNode->peersNum; ++i) {
+      SyncHeartbeat* pSyncMsg = syncHeartbeatBuild(pSyncNode->vgId);
+      pSyncMsg->srcId = pSyncNode->myRaftId;
+      pSyncMsg->destId = pSyncNode->peersId[i];
+      pSyncMsg->privateTerm = 1234;
 
-    SRpcMsg rpcMsg;
-    syncHeartbeat2RpcMsg(pSyncMsg, &rpcMsg);
+      SRpcMsg rpcMsg;
+      syncHeartbeat2RpcMsg(pSyncMsg, &rpcMsg);
 
-    if (pSyncNode->FpEqCtrlMsg != NULL) {
-      int32_t code = pSyncNode->FpEqCtrlMsg(pSyncNode->msgcb, &rpcMsg);
-      if (code != 0) {
-        sError("vgId:%d, sync enqueue timer msg error, code:%d", pSyncNode->vgId, code);
-        rpcFreeCont(rpcMsg.pCont);
-        syncHeartbeatDestroy(pSyncMsg);
-        return;
-      }
-    } else {
-      sError("syncNodeEqHeartbeatTimer FpEqCtrlMsg is NULL");
+      syncNodeSendMsgById(&(pSyncMsg->destId), pSyncNode, &rpcMsg);
     }
 
-    if (syncEnvIsStart()) {
-      taosTmrReset(syncNodeEqHeartbeatTimer, pSyncNode->heartbeatTimerMS, pSyncNode, gSyncEnv->pTimerManager,
-                   &pSyncNode->pHeartbeatTimer);
-    } else {
-      sError("sync env is stop, syncNodeEqHeartbeatTimer");
-    }
+    /*
+        if (pSyncNode->FpEqCtrlMsg != NULL) {
+          int32_t code = pSyncNode->FpEqCtrlMsg(pSyncNode->msgcb, &rpcMsg);
+          if (code != 0) {
+            sError("vgId:%d, sync enqueue timer msg error, code:%d", pSyncNode->vgId, code);
+            rpcFreeCont(rpcMsg.pCont);
+            syncHeartbeatDestroy(pSyncMsg);
+            return;
+          }
+        } else {
+          sError("syncNodeEqHeartbeatTimer FpEqCtrlMsg is NULL");
+        }
+    */
+
   } while (0);
 }
 
@@ -2664,6 +2666,39 @@ int32_t syncNodeOnPingReplyCb(SSyncNode* ths, SyncPingReply* pMsg) {
   syncPingReplyLog2("==syncNodeOnPingReplyCb==", pMsg);
   return ret;
 }
+
+int32_t syncNodeOnHeartbeatCb(SSyncNode* ths, SyncHeartbeat* pMsg) {
+  SyncHeartbeatReply* pMsgReply = syncHeartbeatReplyBuild(ths->vgId);
+  pMsgReply->destId = pMsg->srcId;
+  pMsgReply->srcId = ths->myRaftId;
+  pMsgReply->privateTerm = 5678;
+
+  SRpcMsg rpcMsg;
+  syncHeartbeatReply2RpcMsg(pMsgReply, &rpcMsg);
+
+  /*
+    // htonl
+    SMsgHead* pHead = rpcMsg.pCont;
+    pHead->contLen = htonl(pHead->contLen);
+    pHead->vgId = htonl(pHead->vgId);
+  */
+
+  char    shost[64];
+  int16_t sport;
+  syncUtilU642Addr(pMsgReply->srcId.addr, shost, sizeof(shost), &sport);
+
+  char    dhost[64];
+  int16_t dport;
+  syncUtilU642Addr(pMsgReply->destId.addr, dhost, sizeof(dhost), &dport);
+
+  sInfo("vgId:%d, syncNodeOnHeartbeatCb src: %s:%d, dest: %s:%d", 1, shost, sport, dhost, dport);
+
+  syncNodeSendMsgById(&pMsgReply->destId, ths, &rpcMsg);
+
+  return 0;
+}
+
+int32_t syncNodeOnHeartbeatReplyCb(SSyncNode* ths, SyncHeartbeatReply* pMsg) { return 0; }
 
 // TLA+ Spec
 // ClientRequest(i, v) ==

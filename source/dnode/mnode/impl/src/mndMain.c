@@ -442,6 +442,37 @@ void mndStop(SMnode *pMnode) {
   mndCleanupTimer(pMnode);
 }
 
+int32_t mndProcessSyncCtrlMsg(SRpcMsg *pMsg) {
+  SMnode    *pMnode = pMsg->info.node;
+  SSyncMgmt *pMgmt = &pMnode->syncMgmt;
+  int32_t    code = 0;
+
+  mInfo("vgId:%d, mndProcessSyncCtrlMsg");
+
+  if (!syncEnvIsStart()) {
+    mError("failed to process sync msg:%p type:%s since syncEnv stop", pMsg, TMSG_INFO(pMsg->msgType));
+    terrno = TSDB_CODE_SYN_INTERNAL_ERROR;
+    return -1;
+  }
+
+  SSyncNode *pSyncNode = syncNodeAcquire(pMgmt->sync);
+  if (pSyncNode == NULL) {
+    mError("failed to process sync msg:%p type:%s since syncNode is null", pMsg, TMSG_INFO(pMsg->msgType));
+    terrno = TSDB_CODE_SYN_INTERNAL_ERROR;
+    return -1;
+  }
+
+  if (pMsg->msgType == TDMT_SYNC_HEARTBEAT) {
+    SyncHeartbeat *pSyncMsg = syncHeartbeatFromRpcMsg2(pMsg);
+
+    mInfo("vgId:%d, do process TDMT_SYNC_HEARTBEAT, privateTerm:%ld ", 1, pSyncMsg->privateTerm);
+
+    syncHeartbeatDestroy(pSyncMsg);
+  }
+
+  return 0;
+}
+
 int32_t mndProcessSyncMsg(SRpcMsg *pMsg) {
   SMnode    *pMnode = pMsg->info.node;
   SSyncMgmt *pMgmt = &pMnode->syncMgmt;

@@ -985,6 +985,7 @@ SSyncNode* syncNodeOpen(const SSyncInfo* pOldSyncInfo) {
   pSyncNode->msgcb = pSyncInfo->msgcb;
   pSyncNode->FpSendMsg = pSyncInfo->FpSendMsg;
   pSyncNode->FpEqMsg = pSyncInfo->FpEqMsg;
+  pSyncNode->FpEqCtrlMsg = pSyncInfo->FpEqCtrlMsg;
 
   // init raft config
   pSyncNode->pRaftCfg = raftCfgOpen(pSyncNode->configPath);
@@ -2550,6 +2551,36 @@ static void syncNodeEqHeartbeatTimer(void* param, void* tmrId) {
              pSyncNode->heartbeatTimerLogicClock, pSyncNode->heartbeatTimerLogicClockUser);
     }
   }
+
+  // enqueue sync heartbeat msg
+  do {
+    sInfo("FpEqCtrlMsg ...");
+
+    SyncHeartbeat* pSyncMsg = syncHeartbeatBuild(pSyncNode->vgId);
+    pSyncMsg->privateTerm = 1234;
+
+    SRpcMsg rpcMsg;
+    syncHeartbeat2RpcMsg(pSyncMsg, &rpcMsg);
+
+    if (pSyncNode->FpEqCtrlMsg != NULL) {
+      int32_t code = pSyncNode->FpEqCtrlMsg(pSyncNode->msgcb, &rpcMsg);
+      if (code != 0) {
+        sError("vgId:%d, sync enqueue timer msg error, code:%d", pSyncNode->vgId, code);
+        rpcFreeCont(rpcMsg.pCont);
+        syncHeartbeatDestroy(pSyncMsg);
+        return;
+      }
+    } else {
+      sError("syncNodeEqHeartbeatTimer FpEqCtrlMsg is NULL");
+    }
+
+    if (syncEnvIsStart()) {
+      taosTmrReset(syncNodeEqHeartbeatTimer, pSyncNode->heartbeatTimerMS, pSyncNode, gSyncEnv->pTimerManager,
+                   &pSyncNode->pHeartbeatTimer);
+    } else {
+      sError("sync env is stop, syncNodeEqHeartbeatTimer");
+    }
+  } while (0);
 }
 
 static int32_t syncNodeEqNoop(SSyncNode* ths) {

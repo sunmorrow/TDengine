@@ -41,6 +41,9 @@ typedef struct SColData      SColData;
 #define HAS_NONE  ((uint8_t)0x1)
 #define HAS_NULL  ((uint8_t)0x2)
 #define HAS_VALUE ((uint8_t)0x4)
+#define KV_SMALL  ((uint8_t)0x10)
+#define KV_MID    ((uint8_t)0x20)
+#define KV_BIG    ((uint8_t)0x40)
 
 // bitmap ================================
 const static uint8_t BIT2_MAP[4][4] = {{0b00000000, 0b00000001, 0b00000010, 0},
@@ -61,7 +64,6 @@ int32_t tTSchemaCreate(int32_t sver, SSchema *pSchema, int32_t nCols, STSchema *
 void    tTSchemaDestroy(STSchema *pTSchema);
 
 // SValue ================================
-int32_t tPutValue(uint8_t *p, SValue *pValue, int8_t type);
 int32_t tGetValue(uint8_t *p, SValue *pValue, int8_t type);
 
 // SColVal ================================
@@ -101,7 +103,7 @@ int32_t tEncodeTag(SEncoder *pEncoder, const STag *pTag);
 int32_t tDecodeTag(SDecoder *pDecoder, STag **ppTag);
 int32_t tTagToValArray(const STag *pTag, SArray **ppArray);
 void    tTagSetCid(const STag *pTag, int16_t iTag, int16_t cid);
-void    debugPrintSTag(STag *pTag, const char *tag, int32_t ln);  // TODO: remove
+void    debugPrintSTag(STag *pTag, const char *tag, int32_t ln);
 int32_t parseJsontoTagData(const char *json, SArray *pTagVals, STag **ppTag, void *pMsgBuf);
 
 // SColData ================================
@@ -131,12 +133,6 @@ struct STSchema {
   STColumn columns[];
 };
 
-#define TSROW_HAS_NONE ((uint8_t)0x1)
-#define TSROW_HAS_NULL ((uint8_t)0x2U)
-#define TSROW_HAS_VAL  ((uint8_t)0x4U)
-#define TSROW_KV_SMALL ((uint8_t)0x10U)
-#define TSROW_KV_MID   ((uint8_t)0x20U)
-#define TSROW_KV_BIG   ((uint8_t)0x40U)
 #pragma pack(push, 1)
 struct STSRow2 {
   TSKEY   ts;

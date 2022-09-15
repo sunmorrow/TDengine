@@ -89,6 +89,7 @@ void vmCloseVnode(SVnodeMgmt *pMgmt, SVnodeObj *pVnode) {
 
   while (!taosQueueEmpty(pVnode->pWriteQ)) taosMsleep(10);
   while (!taosQueueEmpty(pVnode->pSyncQ)) taosMsleep(10);
+  while (!taosQueueEmpty(pVnode->pSyncCtrlQ)) taosMsleep(10);
   while (!taosQueueEmpty(pVnode->pApplyQ)) taosMsleep(10);
   while (!taosQueueEmpty(pVnode->pQueryQ)) taosMsleep(10);
   while (!taosQueueEmpty(pVnode->pFetchQ)) taosMsleep(10);

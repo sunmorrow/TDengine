@@ -22,16 +22,11 @@ static int32_t mndSyncEqCtrlMsg(const SMsgCb *msgcb, SRpcMsg *pMsg) {
   pHead->contLen = htonl(pHead->contLen);
   pHead->vgId = htonl(pHead->vgId);
 
-  mInfo("mndSyncEqCtrlMsg");
-
   int32_t code = tmsgPutToQueue(msgcb, SYNC_CTRL_QUEUE, pMsg);
   if (code != 0) {
     rpcFreeCont(pMsg->pCont);
     pMsg->pCont = NULL;
   }
-
-  mInfo("mndSyncEqCtrlMsg code:%d", code);
-
   return code;
 }
 

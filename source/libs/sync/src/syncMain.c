@@ -2552,35 +2552,18 @@ static void syncNodeEqHeartbeatTimer(void* param, void* tmrId) {
     }
   }
 
-  // enqueue sync heartbeat msg
+  // enqueue/send sync heartbeat msg
   do {
-    sInfo("FpEqCtrlMsg ...");
-
     for (int i = 0; i < pSyncNode->peersNum; ++i) {
       SyncHeartbeat* pSyncMsg = syncHeartbeatBuild(pSyncNode->vgId);
       pSyncMsg->srcId = pSyncNode->myRaftId;
       pSyncMsg->destId = pSyncNode->peersId[i];
-      pSyncMsg->privateTerm = 1234;
+      pSyncMsg->term = pSyncNode->pRaftStore->currentTerm;
+      pSyncMsg->commitIndex = pSyncNode->commitIndex;
+      pSyncMsg->privateTerm = 0;
 
-      SRpcMsg rpcMsg;
-      syncHeartbeat2RpcMsg(pSyncMsg, &rpcMsg);
-
-      syncNodeSendMsgById(&(pSyncMsg->destId), pSyncNode, &rpcMsg);
+      syncNodeHeartbeat(pSyncNode, &(pSyncMsg->destId), pSyncMsg);
     }
-
-    /*
-        if (pSyncNode->FpEqCtrlMsg != NULL) {
-          int32_t code = pSyncNode->FpEqCtrlMsg(pSyncNode->msgcb, &rpcMsg);
-          if (code != 0) {
-            sError("vgId:%d, sync enqueue timer msg error, code:%d", pSyncNode->vgId, code);
-            rpcFreeCont(rpcMsg.pCont);
-            syncHeartbeatDestroy(pSyncMsg);
-            return;
-          }
-        } else {
-          sError("syncNodeEqHeartbeatTimer FpEqCtrlMsg is NULL");
-        }
-    */
 
   } while (0);
 }
@@ -2668,13 +2651,21 @@ int32_t syncNodeOnPingReplyCb(SSyncNode* ths, SyncPingReply* pMsg) {
 }
 
 int32_t syncNodeOnHeartbeatCb(SSyncNode* ths, SyncHeartbeat* pMsg) {
+  syncLogRecvHeartbeat(ths, pMsg, "");
+
   SyncHeartbeatReply* pMsgReply = syncHeartbeatReplyBuild(ths->vgId);
   pMsgReply->destId = pMsg->srcId;
   pMsgReply->srcId = ths->myRaftId;
-  pMsgReply->privateTerm = 5678;
+  pMsgReply->term = ths->pRaftStore->currentTerm;
+  pMsgReply->privateTerm = 8864;  // magic number
 
   SRpcMsg rpcMsg;
   syncHeartbeatReply2RpcMsg(pMsgReply, &rpcMsg);
+
+  if (pMsg->term == ths->pRaftStore->currentTerm) {
+    sInfo("vgId:%d, heartbeat reset timer", 1);
+    syncNodeResetElectTimer(ths);
+  }
 
   /*
     // htonl
@@ -2683,22 +2674,20 @@ int32_t syncNodeOnHeartbeatCb(SSyncNode* ths, SyncHeartbeat* pMsg) {
     pHead->vgId = htonl(pHead->vgId);
   */
 
-  char    shost[64];
-  int16_t sport;
-  syncUtilU642Addr(pMsgReply->srcId.addr, shost, sizeof(shost), &sport);
-
-  char    dhost[64];
-  int16_t dport;
-  syncUtilU642Addr(pMsgReply->destId.addr, dhost, sizeof(dhost), &dport);
-
-  sInfo("vgId:%d, syncNodeOnHeartbeatCb src: %s:%d, dest: %s:%d", 1, shost, sport, dhost, dport);
-
+  // reply
   syncNodeSendMsgById(&pMsgReply->destId, ths, &rpcMsg);
 
   return 0;
 }
 
-int32_t syncNodeOnHeartbeatReplyCb(SSyncNode* ths, SyncHeartbeatReply* pMsg) { return 0; }
+int32_t syncNodeOnHeartbeatReplyCb(SSyncNode* ths, SyncHeartbeatReply* pMsg) {
+  syncLogRecvHeartbeatReply(ths, pMsg, "");
+
+  // update last reply time, make decision whether the other node is alive or not
+  syncIndexMgrSetRecvTime(ths->pMatchIndex, &(pMsg->destId), pMsg->startTime);
+
+  return 0;
+}
 
 // TLA+ Spec
 // ClientRequest(i, v) ==
@@ -3294,5 +3283,47 @@ void syncLogRecvAppendEntriesReply(SSyncNode* pSyncNode, const SyncAppendEntries
            "recv sync-append-entries-reply from %s:%d {term:%" PRIu64 ", pterm:%" PRIu64 ", success:%d, match:%" PRId64
            "}, %s",
            host, port, pMsg->term, pMsg->privateTerm, pMsg->success, pMsg->matchIndex, s);
+  syncNodeEventLog(pSyncNode, logBuf);
+}
+
+void syncLogSendHeartbeat(SSyncNode* pSyncNode, const SyncHeartbeat* pMsg, const char* s) {
+  char     host[64];
+  uint16_t port;
+  syncUtilU642Addr(pMsg->destId.addr, host, sizeof(host), &port);
+  char logBuf[256];
+  snprintf(logBuf, sizeof(logBuf),
+           "send sync-heartbeat from %s:%d {term:%" PRIu64 ", cmt:%" PRIu64 ", pterm:%" PRIu64 "}, %s", host, port,
+           pMsg->term, pMsg->commitIndex, pMsg->privateTerm, s);
+  syncNodeEventLog(pSyncNode, logBuf);
+}
+
+void syncLogRecvHeartbeat(SSyncNode* pSyncNode, const SyncHeartbeat* pMsg, const char* s) {
+  char     host[64];
+  uint16_t port;
+  syncUtilU642Addr(pMsg->srcId.addr, host, sizeof(host), &port);
+  char logBuf[256];
+  snprintf(logBuf, sizeof(logBuf),
+           "recv sync-heartbeat from %s:%d {term:%" PRIu64 ", cmt:%" PRIu64 ", pterm:%" PRIu64 "}, %s", host, port,
+           pMsg->term, pMsg->commitIndex, pMsg->privateTerm, s);
+  syncNodeEventLog(pSyncNode, logBuf);
+}
+
+void syncLogSendHeartbeatReply(SSyncNode* pSyncNode, const SyncHeartbeatReply* pMsg, const char* s) {
+  char     host[64];
+  uint16_t port;
+  syncUtilU642Addr(pMsg->destId.addr, host, sizeof(host), &port);
+  char logBuf[256];
+  snprintf(logBuf, sizeof(logBuf), "send sync-heartbeat-reply from %s:%d {term:%" PRIu64 ", pterm:%" PRIu64 "}, %s",
+           host, port, pMsg->term, pMsg->privateTerm, s);
+  syncNodeEventLog(pSyncNode, logBuf);
+}
+
+void syncLogRecvHeartbeatReply(SSyncNode* pSyncNode, const SyncHeartbeatReply* pMsg, const char* s) {
+  char     host[64];
+  uint16_t port;
+  syncUtilU642Addr(pMsg->srcId.addr, host, sizeof(host), &port);
+  char logBuf[256];
+  snprintf(logBuf, sizeof(logBuf), "recv sync-heartbeat-reply from %s:%d {term:%" PRIu64 ", pterm:%" PRIu64 "}, %s",
+           host, port, pMsg->term, pMsg->privateTerm, s);
   syncNodeEventLog(pSyncNode, logBuf);
 }

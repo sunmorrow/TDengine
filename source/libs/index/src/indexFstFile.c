@@ -22,6 +22,7 @@
 
 static int32_t kBlockSize = 4096;
 
+#define TTMIN(num0, num1, num2) TMIN(TMIN(num0, num1), num2)
 typedef struct {
   int32_t blockId;
   int32_t nread;
@@ -76,22 +77,32 @@ static int idxFileCtxDoReadFrom(IFileCtx* ctx, uint8_t* buf, int len, int32_t of
 
     if (h) {
       SDataBlock* blk = taosLRUCacheValue(ctx->lru, h);
+
       nread = TMIN(blkLeft, len);
+      if (blk->nread < kBlockSize) {
+        nread = TMIN(nread, blk->nread - blkOffset);
+      }
       memcpy(buf + total, blk->buf + blkOffset, nread);
       taosLRUCacheRelease(ctx->lru, h, false);
     } else {
-      int32_t cacheMemSize = sizeof(SDataBlock) + kBlockSize;
+      int leftBytes =
+          blkId * kBlockSize + kBlockSize <= ctx->file.size ? kBlockSize : ctx->file.size - blkId * kBlockSize;
 
+      int32_t     cacheMemSize = sizeof(SDataBlock) + leftBytes;
       SDataBlock* blk = taosMemoryCalloc(1, cacheMemSize);
-      blk->blockId = blkId;
-      blk->nread = taosPReadFile(ctx->file.pFile, blk->buf, kBlockSize, blkId * kBlockSize);
-      assert(blk->nread <= kBlockSize);
 
-      if (blk->nread < kBlockSize && blk->nread < len) {
+      blk->blockId = blkId;
+      blk->nread = taosPReadFile(ctx->file.pFile, blk->buf, leftBytes, blkId * kBlockSize);
+
+      assert(blk->nread <= leftBytes);
+
+      if (blk->nread < leftBytes && blk->nread < len) {
         break;
       }
 
       nread = TMIN(blkLeft, len);
+      if (blk->nread < kBlockSize) nread = TMIN(nread, blk->nread - blkOffset);
+
       memcpy(buf + total, blk->buf + blkOffset, nread);
 
       LRUStatus s = taosLRUCacheInsert(ctx->lru, key, strlen(key), blk, cacheMemSize, deleteDataBlockFromLRU, NULL,
@@ -145,10 +156,7 @@ IFileCtx* idxFileCtxCreate(WriterType type, const char* path, bool readOnly, int
       taosStatFile(path, &ctx->file.size, NULL);
     } else {
       ctx->file.pFile = taosOpenFile(path, TD_FILE_READ);
-
-      int64_t size = 0;
       taosFStatFile(ctx->file.pFile, &ctx->file.size, NULL);
-      ctx->file.size = (int)size;
 #ifdef USE_MMAP
       ctx->file.ptr = (char*)tfMmapReadOnly(ctx->file.pFile, ctx->file.size);
 #endif

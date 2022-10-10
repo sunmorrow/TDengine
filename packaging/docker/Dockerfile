@@ -21,5 +21,5 @@ ENV LD_LIBRARY_PATH="$LD_LIBRARY_PATH:/usr/lib" \
 COPY ./bin/* /usr/bin/
 
 ENTRYPOINT ["/tini", "--", "/usr/bin/entrypoint.sh"]
-CMD ["taosd"]
+CMD ["sh", "/usr/bin/run.sh"]
 VOLUME [ "/var/lib/taos", "/var/log/taos", "/corefile" ]

@@ -86,12 +86,14 @@ int32_t mmProcessCreateReq(const SMgmtInputOpt *pInput, SRpcMsg *pMsg) {
     return -1;
   }
 
-  bool deployed = true;
+  SMnodeOpt option = {
+      .deploy = true,
+      .numOfReplicas = createReq.replica,
+      .selfIndex = createReq.selfIndex,
+  };
+  memcpy(option.replicas, createReq.replicas, sizeof(createReq.replicas));
 
-  SMnodeMgmt mgmt = {0};
-  mgmt.path = pInput->path;
-  mgmt.name = pInput->name;
-  if (mmWriteFile(&mgmt, &createReq.replicas[0], deployed) != 0) {
+  if (mndWriteFile(pInput->path, &option) != 0) {
     dGError("failed to write mnode file since %s", terrstr());
     return -1;
   }
@@ -113,12 +115,8 @@ int32_t mmProcessDropReq(const SMgmtInputOpt *pInput, SRpcMsg *pMsg) {
     return -1;
   }
 
-  bool deployed = false;
-
-  SMnodeMgmt mgmt = {0};
-  mgmt.path = pInput->path;
-  mgmt.name = pInput->name;
-  if (mmWriteFile(&mgmt, NULL, deployed) != 0) {
+  SMnodeOpt option = {.deploy = false};
+  if (mndWriteFile(pInput->path, &option) != 0) {
     dGError("failed to write mnode file since %s", terrstr());
     return -1;
   }
@@ -207,7 +205,6 @@ SArray *mmGetMsgHandles() {
   if (dmSetMgmtHandle(pArray, TDMT_MND_HEARTBEAT, mmPutMsgToWriteQueue, 0) == NULL) goto _OVER;
   if (dmSetMgmtHandle(pArray, TDMT_MND_STATUS, mmPutMsgToReadQueue, 0) == NULL) goto _OVER;
   if (dmSetMgmtHandle(pArray, TDMT_MND_SYSTABLE_RETRIEVE, mmPutMsgToReadQueue, 0) == NULL) goto _OVER;
-  // if (dmSetMgmtHandle(pArray, TDMT_MND_GRANT, mmPutMsgToWriteQueue, 0) == NULL) goto _OVER;
   if (dmSetMgmtHandle(pArray, TDMT_MND_AUTH, mmPutMsgToReadQueue, 0) == NULL) goto _OVER;
   if (dmSetMgmtHandle(pArray, TDMT_MND_SHOW_VARIABLES, mmPutMsgToReadQueue, 0) == NULL) goto _OVER;
   if (dmSetMgmtHandle(pArray, TDMT_MND_SERVER_VERSION, mmPutMsgToReadQueue, 0) == NULL) goto _OVER;

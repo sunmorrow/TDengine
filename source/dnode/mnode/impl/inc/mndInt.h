@@ -87,12 +87,13 @@ typedef struct {
 typedef struct {
   tsem_t   syncSem;
   int64_t  sync;
-  SReplica replica;
   int32_t  errCode;
   int32_t  transId;
   SRWLatch lock;
-  int8_t   standby;
   int8_t   leaderTransferFinish;
+  int8_t   selfIndex;
+  int8_t   numOfReplicas;
+  SReplica replicas[TSDB_MAX_REPLICA];
 } SSyncMgmt;
 
 typedef struct {

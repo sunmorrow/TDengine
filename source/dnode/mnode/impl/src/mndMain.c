@@ -338,8 +338,9 @@ static int32_t mndExecSteps(SMnode *pMnode) {
 static void mndSetOptions(SMnode *pMnode, const SMnodeOpt *pOption) {
   pMnode->msgCb = pOption->msgCb;
   pMnode->selfDnodeId = pOption->dnodeId;
-  pMnode->syncMgmt.replica = pOption->replica;
-  pMnode->syncMgmt.standby = pOption->standby;
+  pMnode->syncMgmt.selfIndex = pOption->selfIndex;
+  pMnode->syncMgmt.numOfReplicas = pOption->numOfReplicas;
+  memcpy(pMnode->syncMgmt.replicas, pOption->replicas, sizeof(pOption->replicas));
 }
 
 SMnode *mndOpen(const char *path, const SMnodeOpt *pOption) {

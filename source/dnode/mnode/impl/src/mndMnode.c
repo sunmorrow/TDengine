@@ -15,8 +15,8 @@
 
 #define _DEFAULT_SOURCE
 #include "mndMnode.h"
-#include "mndPrivilege.h"
 #include "mndDnode.h"
+#include "mndPrivilege.h"
 #include "mndShow.h"
 #include "mndSync.h"
 #include "mndTrans.h"
@@ -272,11 +272,71 @@ static int32_t mndSetCreateMnodeCommitLogs(SMnode *pMnode, STrans *pTrans, SMnod
   return 0;
 }
 
+static int32_t mndBuildCreateMnodeRedoAction(STrans *pTrans, SDCreateMnodeReq *pCreateReq, SEpSet *pCreateEpSet) {
+  int32_t contLen = tSerializeSDCreateMnodeReq(NULL, 0, pCreateReq);
+  void   *pReq = taosMemoryMalloc(contLen);
+  tSerializeSDCreateMnodeReq(pReq, contLen, pCreateReq);
+
+  STransAction action = {
+      .epSet = *pCreateEpSet,
+      .pCont = pReq,
+      .contLen = contLen,
+      .msgType = TDMT_DND_CREATE_MNODE,
+      .acceptableCode = TSDB_CODE_NODE_ALREADY_DEPLOYED,
+  };
+
+  if (mndTransAppendRedoAction(pTrans, &action) != 0) {
+    taosMemoryFree(pReq);
+    return -1;
+  }
+  return 0;
+}
+
+static int32_t mndBuildAlterMnodeRedoAction(STrans *pTrans, SDCreateMnodeReq *pAlterReq, SEpSet *pAlterEpSet) {
+  int32_t contLen = tSerializeSDCreateMnodeReq(NULL, 0, pAlterReq);
+  void   *pReq = taosMemoryMalloc(contLen);
+  tSerializeSDCreateMnodeReq(pReq, contLen, pAlterReq);
+
+  STransAction action = {
+      .epSet = *pAlterEpSet,
+      .pCont = pReq,
+      .contLen = contLen,
+      .msgType = TDMT_MND_ALTER_MNODE,
+      .acceptableCode = 0,
+  };
+
+  if (mndTransAppendRedoAction(pTrans, &action) != 0) {
+    taosMemoryFree(pReq);
+    return -1;
+  }
+
+  return 0;
+}
+
+static int32_t mndBuildDropMnodeRedoAction(STrans *pTrans, SDDropMnodeReq *pDropReq, SEpSet *pDroprEpSet) {
+  int32_t contLen = tSerializeSCreateDropMQSBNodeReq(NULL, 0, pDropReq);
+  void   *pReq = taosMemoryMalloc(contLen);
+  tSerializeSCreateDropMQSBNodeReq(pReq, contLen, pDropReq);
+
+  STransAction action = {
+      .epSet = *pDroprEpSet,
+      .pCont = pReq,
+      .contLen = contLen,
+      .msgType = TDMT_DND_DROP_MNODE,
+      .acceptableCode = TSDB_CODE_NODE_NOT_DEPLOYED,
+  };
+
+  if (mndTransAppendRedoAction(pTrans, &action) != 0) {
+    taosMemoryFree(pReq);
+    return -1;
+  }
+  return 0;
+}
+
 static int32_t mndSetCreateMnodeRedoActions(SMnode *pMnode, STrans *pTrans, SDnodeObj *pDnode, SMnodeObj *pObj) {
   SSdb            *pSdb = pMnode->pSdb;
   void            *pIter = NULL;
   int32_t          numOfReplicas = 0;
-  SDAlterMnodeReq  alterReq = {0};
   SDCreateMnodeReq createReq = {0};
   SEpSet           alterEpset = {0};
   SEpSet           createEpset = {0};
@@ -286,9 +346,9 @@ static int32_t mndSetCreateMnodeRedoActions(SMnode *pMnode, STrans *pTrans, SDno
     pIter = sdbFetch(pSdb, SDB_MNODE, pIter, (void **)&pMObj);
     if (pIter == NULL) break;
 
-    alterReq.replicas[numOfReplicas].id = pMObj->id;
-    alterReq.replicas[numOfReplicas].port = pMObj->pDnode->port;
-    memcpy(alterReq.replicas[numOfReplicas].fqdn, pMObj->pDnode->fqdn, TSDB_FQDN_LEN);
+    createReq.replicas[numOfReplicas].id = pMObj->id;
+    createReq.replicas[numOfReplicas].port = pMObj->pDnode->port;
+    memcpy(createReq.replicas[numOfReplicas].fqdn, pMObj->pDnode->fqdn, TSDB_FQDN_LEN);
 
     alterEpset.eps[numOfReplicas].port = pMObj->pDnode->port;
     memcpy(alterEpset.eps[numOfReplicas].fqdn, pMObj->pDnode->fqdn, TSDB_FQDN_LEN);
@@ -300,61 +360,17 @@ static int32_t mndSetCreateMnodeRedoActions(SMnode *pMnode, STrans *pTrans, SDno
     sdbRelease(pSdb, pMObj);
   }
 
-  alterReq.replica = numOfReplicas + 1;
-  alterReq.replicas[numOfReplicas].id = pDnode->id;
-  alterReq.replicas[numOfReplicas].port = pDnode->port;
-  memcpy(alterReq.replicas[numOfReplicas].fqdn, pDnode->fqdn, TSDB_FQDN_LEN);
-
-  alterEpset.numOfEps = numOfReplicas + 1;
-  alterEpset.eps[numOfReplicas].port = pDnode->port;
-  memcpy(alterEpset.eps[numOfReplicas].fqdn, pDnode->fqdn, TSDB_FQDN_LEN);
-
-  createReq.replica = 1;
-  createReq.replicas[0].id = pDnode->id;
-  createReq.replicas[0].port = pDnode->port;
-  memcpy(createReq.replicas[0].fqdn, pDnode->fqdn, TSDB_FQDN_LEN);
+  createReq.replica = numOfReplicas + 1;
+  createReq.replicas[numOfReplicas].id = pDnode->id;
+  createReq.replicas[numOfReplicas].port = pDnode->port;
+  memcpy(createReq.replicas[numOfReplicas].fqdn, pDnode->fqdn, TSDB_FQDN_LEN);
 
   createEpset.numOfEps = 1;
   createEpset.eps[0].port = pDnode->port;
   memcpy(createEpset.eps[0].fqdn, pDnode->fqdn, TSDB_FQDN_LEN);
 
-  {
-    int32_t contLen = tSerializeSDCreateMnodeReq(NULL, 0, &createReq);
-    void   *pReq = taosMemoryMalloc(contLen);
-    tSerializeSDCreateMnodeReq(pReq, contLen, &createReq);
-
-    STransAction action = {
-        .epSet = createEpset,
-        .pCont = pReq,
-        .contLen = contLen,
-        .msgType = TDMT_DND_CREATE_MNODE,
-        .acceptableCode = TSDB_CODE_NODE_ALREADY_DEPLOYED,
-    };
-
-    if (mndTransAppendRedoAction(pTrans, &action) != 0) {
-      taosMemoryFree(pReq);
-      return -1;
-    }
-  }
-
-  {
-    int32_t contLen = tSerializeSDCreateMnodeReq(NULL, 0, &alterReq);
-    void   *pReq = taosMemoryMalloc(contLen);
-    tSerializeSDCreateMnodeReq(pReq, contLen, &alterReq);
-
-    STransAction action = {
-        .epSet = alterEpset,
-        .pCont = pReq,
-        .contLen = contLen,
-        .msgType = TDMT_MND_ALTER_MNODE,
-        .acceptableCode = 0,
-    };
-
-    if (mndTransAppendRedoAction(pTrans, &action) != 0) {
-      taosMemoryFree(pReq);
-      return -1;
-    }
-  }
+  if (mndBuildCreateMnodeRedoAction(pTrans, &createReq, &createEpset) != 0) return -1;
+  if (mndBuildAlterMnodeRedoAction(pTrans, &createReq, &alterEpset) != 0) return -1;
 
   return 0;
 }
@@ -462,7 +478,6 @@ static int32_t mndSetDropMnodeRedoActions(SMnode *pMnode, STrans *pTrans, SDnode
   int32_t         numOfReplicas = 0;
   SDAlterMnodeReq alterReq = {0};
   SDDropMnodeReq  dropReq = {0};
-  SSetStandbyReq  standbyReq = {0};
   SEpSet          alterEpset = {0};
   SEpSet          dropEpSet = {0};
 
@@ -497,67 +512,12 @@ static int32_t mndSetDropMnodeRedoActions(SMnode *pMnode, STrans *pTrans, SDnode
   dropEpSet.eps[0].port = pDnode->port;
   memcpy(dropEpSet.eps[0].fqdn, pDnode->fqdn, TSDB_FQDN_LEN);
 
-  standbyReq.dnodeId = pDnode->id;
-  standbyReq.standby = 1;
-
-  {
-    int32_t contLen = tSerializeSSetStandbyReq(NULL, 0, &standbyReq) + sizeof(SMsgHead);
-    void   *pReq = taosMemoryMalloc(contLen);
-    tSerializeSSetStandbyReq((char *)pReq + sizeof(SMsgHead), contLen, &standbyReq);
-    SMsgHead *pHead = pReq;
-    pHead->contLen = htonl(contLen);
-    pHead->vgId = htonl(MNODE_HANDLE);
-
-    STransAction action = {
-        .epSet = dropEpSet,
-        .pCont = pReq,
-        .contLen = contLen,
-        .msgType = TDMT_SYNC_SET_MNODE_STANDBY,
-        .acceptableCode = TSDB_CODE_NODE_NOT_DEPLOYED,
-    };
-
-    if (mndTransAppendRedoAction(pTrans, &action) != 0) {
-      taosMemoryFree(pReq);
-      return -1;
-    }
-  }
-
-  {
-    int32_t contLen = tSerializeSDCreateMnodeReq(NULL, 0, &alterReq);
-    void   *pReq = taosMemoryMalloc(contLen);
-    tSerializeSDCreateMnodeReq(pReq, contLen, &alterReq);
-
-    STransAction action = {
-        .epSet = alterEpset,
-        .pCont = pReq,
-        .contLen = contLen,
-        .msgType = TDMT_MND_ALTER_MNODE,
-        .acceptableCode = 0,
-    };
-
-    if (mndTransAppendRedoAction(pTrans, &action) != 0) {
-      taosMemoryFree(pReq);
-      return -1;
-    }
-  }
-
-  {
-    int32_t contLen = tSerializeSCreateDropMQSBNodeReq(NULL, 0, &dropReq);
-    void   *pReq = taosMemoryMalloc(contLen);
-    tSerializeSCreateDropMQSBNodeReq(pReq, contLen, &dropReq);
-
-    STransAction action = {
-        .epSet = dropEpSet,
-        .pCont = pReq,
-        .contLen = contLen,
-        .msgType = TDMT_DND_DROP_MNODE,
-        .acceptableCode = TSDB_CODE_NODE_NOT_DEPLOYED,
-    };
-
-    if (mndTransAppendRedoAction(pTrans, &action) != 0) {
-      taosMemoryFree(pReq);
-      return -1;
-    }
+  if (numOfReplicas == 1) {
+    if (mndBuildAlterMnodeRedoAction(pTrans, &alterReq, &alterEpset) != 0) return -1;
+    if (mndBuildDropMnodeRedoAction(pTrans, &dropReq, &dropEpSet) != 0) return -1;
+  } else {
+    if (mndBuildDropMnodeRedoAction(pTrans, &dropReq, &dropEpSet) != 0) return -1;
+    if (mndBuildAlterMnodeRedoAction(pTrans, &alterReq, &alterEpset) != 0) return -1;
   }
 
   return 0;
@@ -718,6 +678,14 @@ static int32_t mndProcessAlterMnodeReq(SRpcMsg *pReq) {
     return -1;
   }
 
+  // SMnodeOpt opt = {0};
+  // mndWriteFile();
+
+  // SSync Cfg = {0};
+  // syncReconfig(set config)
+
+
+#if 0
   SSyncCfg cfg = {.replicaNum = alterReq.replica, .myIndex = -1};
   for (int32_t i = 0; i < alterReq.replica; ++i) {
     SNodeInfo *pNode = &cfg.nodeInfo[i];
@@ -755,4 +723,7 @@ static int32_t mndProcessAlterMnodeReq(SRpcMsg *pReq) {
     terrno = pMgmt->errCode;
     return pMgmt->errCode;
   }
+
+#endif
+  return 0;
 }

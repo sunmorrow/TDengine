@@ -27,11 +27,13 @@ static bool mmDeployRequired(const SMgmtInputOpt *pInput) {
 static int32_t mmRequire(const SMgmtInputOpt *pInput, bool *required) {
   SMnodeMgmt mgmt = {0};
   mgmt.path = pInput->path;
-  if (mmReadFile(&mgmt, NULL, required) != 0) {
+
+  SMnodeOpt option = {0};
+  if (mndReadFile(mgmt.path, &option) != 0) {
     return -1;
   }
 
-  if (!(*required)) {
+  if (!option.deploy) {
     *required = mmDeployRequired(pInput);
   }
 
@@ -39,24 +41,20 @@ static int32_t mmRequire(const SMgmtInputOpt *pInput, bool *required) {
 }
 
 static void mmBuildOptionForDeploy(SMnodeMgmt *pMgmt, const SMgmtInputOpt *pInput, SMnodeOpt *pOption) {
-  pOption->standby = false;
   pOption->deploy = true;
   pOption->msgCb = pMgmt->msgCb;
   pOption->dnodeId = pMgmt->pData->dnodeId;
-  pOption->replica.id = 1;
-  pOption->replica.port = tsServerPort;
-  tstrncpy(pOption->replica.fqdn, tsLocalFqdn, TSDB_FQDN_LEN);
+  pOption->selfIndex = 0;
+  pOption->numOfReplicas = 1;
+  pOption->replicas[0].id = 1;
+  pOption->replicas[0].port = tsServerPort;
+  tstrncpy(pOption->replicas[0].fqdn, tsLocalFqdn, TSDB_FQDN_LEN);
 }
 
-static void mmBuildOptionForOpen(SMnodeMgmt *pMgmt, const SReplica *pReplica, SMnodeOpt *pOption) {
-  pOption->standby = false;
+static void mmBuildOptionForOpen(SMnodeMgmt *pMgmt, SMnodeOpt *pOption) {
   pOption->deploy = false;
   pOption->msgCb = pMgmt->msgCb;
   pOption->dnodeId = pMgmt->pData->dnodeId;
-  if (pReplica->id > 0) {
-    pOption->standby = true;
-    pOption->replica = *pReplica;
-  }
 }
 
 static void mmClose(SMnodeMgmt *pMgmt) {
@@ -95,22 +93,20 @@ static int32_t mmOpen(SMgmtInputOpt *pInput, SMgmtOutputOpt *pOutput) {
   pMgmt->msgCb.mgmt = pMgmt;
   taosThreadRwlockInit(&pMgmt->lock, NULL);
 
-  bool     deployed = false;
-  SReplica replica = {0};
-  if (mmReadFile(pMgmt, &replica, &deployed) != 0) {
+  SMnodeOpt option = {0};
+  if (mndReadFile(pMgmt->path, &option) != 0) {
     dError("failed to read file since %s", terrstr());
     mmClose(pMgmt);
     return -1;
   }
 
-  SMnodeOpt option = {0};
-  if (!deployed) {
+  if (!option.deploy) {
     dInfo("mnode start to deploy");
     pMgmt->pData->dnodeId = 1;
     mmBuildOptionForDeploy(pMgmt, pInput, &option);
   } else {
     dInfo("mnode start to open");
-    mmBuildOptionForOpen(pMgmt, &replica, &option);
+    mmBuildOptionForOpen(pMgmt, &option);
   }
 
   pMgmt->pMnode = mndOpen(pMgmt->path, &option);
@@ -128,9 +124,9 @@ static int32_t mmOpen(SMgmtInputOpt *pInput, SMgmtOutputOpt *pOutput) {
   }
   tmsgReportStartup("mnode-worker", "initialized");
 
-  if (!deployed || replica.id > 0) {
-    deployed = true;
-    if (mmWriteFile(pMgmt, NULL, deployed) != 0) {
+  if (!option.deploy) {
+    option.deploy = true;
+    if (mndWriteFile(pMgmt->path, &option) != 0) {
       dError("failed to write mnode file since %s", terrstr());
       return -1;
     }

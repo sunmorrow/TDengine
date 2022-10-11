@@ -40,10 +40,6 @@ typedef struct SMnodeMgmt {
   TdThreadRwlock lock;
 } SMnodeMgmt;
 
-// mmFile.c
-int32_t mmReadFile(SMnodeMgmt *pMgmt, SReplica *pReplica, bool *pDeployed);
-int32_t mmWriteFile(SMnodeMgmt *pMgmt, const SReplica *pReplica, bool deployed);
-
 // mmHandle.c
 SArray *mmGetMsgHandles();
 int32_t mmProcessCreateReq(const SMgmtInputOpt *pInput, SRpcMsg *pMsg);

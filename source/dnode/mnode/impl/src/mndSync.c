@@ -235,11 +235,11 @@ int32_t mndInitSync(SMnode *pMnode) {
   SSyncCfg *pCfg = &syncInfo.syncCfg;
   pCfg->replicaNum = pMgmt->numOfReplicas;
   pCfg->myIndex = pMgmt->selfIndex;
-  for (int32_t i = 0; i < pMgmt->selfIndex; pMgmt->numOfReplicas) {
-    SNodeInfo *pNode = &pCfg->nodeInfo[0];
+  for (int32_t i = 0; i < pMgmt->numOfReplicas; ++i) {
+    SNodeInfo *pNode = &pCfg->nodeInfo[i];
     tstrncpy(pNode->nodeFqdn, pMgmt->replicas[i].fqdn, sizeof(pNode->nodeFqdn));
     pNode->nodePort = pMgmt->replicas[i].port;
-    mInfo("vgId:1, ep:%s:%u", pNode->nodeFqdn, pNode->nodePort);
+    mInfo("vgId:1, index:%d ep:%s:%u", i, pNode->nodeFqdn, pNode->nodePort);
   }
 
   tsem_init(&pMgmt->syncSem, 0, 0);

@@ -75,7 +75,10 @@ int32_t mndReadFile(const char *path, SMnodeOpt *pOption) {
   for (int32_t i = 0; i < numOfReplicas; ++i) {
     SReplica *pReplica = pOption->replicas + i;
 
-    cJSON *id = cJSON_GetObjectItem(root, "id");
+    cJSON *replica = cJSON_GetArrayItem(replicas, i);
+    if (replica == NULL) break;
+
+    cJSON *id = cJSON_GetObjectItem(replica, "id");
     if (id) {
       if (id->type != cJSON_Number) {
         mError("failed to read %s since id not found", file);
@@ -86,7 +89,7 @@ int32_t mndReadFile(const char *path, SMnodeOpt *pOption) {
       }
     }
 
-    cJSON *fqdn = cJSON_GetObjectItem(root, "fqdn");
+    cJSON *fqdn = cJSON_GetObjectItem(replica, "fqdn");
     if (fqdn) {
       if (fqdn->type != cJSON_String || fqdn->valuestring == NULL) {
         mError("failed to read %s since fqdn not found", file);
@@ -97,7 +100,7 @@ int32_t mndReadFile(const char *path, SMnodeOpt *pOption) {
       }
     }
 
-    cJSON *port = cJSON_GetObjectItem(root, "port");
+    cJSON *port = cJSON_GetObjectItem(replica, "port");
     if (port) {
       if (port->type != cJSON_Number) {
         mError("failed to read %s since port not found", file);
@@ -141,7 +144,7 @@ int32_t mndWriteFile(const char *path, const SMnodeOpt *pOption) {
   char   *content = taosMemoryCalloc(1, maxLen + 1);
 
   len += snprintf(content + len, maxLen - len, "{\n");
-  len += snprintf(content + len, maxLen - len, "  \"deployed\": %d\n", pOption->deploy);
+  len += snprintf(content + len, maxLen - len, "  \"deployed\": %d,\n", pOption->deploy);
   if (pOption->deploy) {
     len += snprintf(content + len, maxLen - len, "  \"selfIndex\": %d,\n", pOption->selfIndex);
     len += snprintf(content + len, maxLen - len, "  \"replicas\": [{\n");
@@ -151,7 +154,7 @@ int32_t mndWriteFile(const char *path, const SMnodeOpt *pOption) {
       if (pReplica != NULL && pReplica->id > 0) {
         len += snprintf(content + len, maxLen - len, "    \"id\": %d,\n", pReplica->id);
         len += snprintf(content + len, maxLen - len, "    \"fqdn\": \"%s\",\n", pReplica->fqdn);
-        len += snprintf(content + len, maxLen - len, "    \"port\": %u\n,", pReplica->port);
+        len += snprintf(content + len, maxLen - len, "    \"port\": %u\n", pReplica->port);
       }
       if (i < pOption->numOfReplicas - 1) {
         len += snprintf(content + len, maxLen - len, "  },{\n");

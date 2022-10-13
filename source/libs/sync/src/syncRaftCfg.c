@@ -323,7 +323,6 @@ int32_t syncCfgFromStr(const char *s, SSyncCfg *pSyncCfg) {
 
 cJSON *raftCfg2Json(SRaftCfg *pRaftCfg) {
   cJSON *pRoot = cJSON_CreateObject();
-  cJSON_AddItemToObject(pRoot, "SSyncCfg", syncCfg2Json(&(pRaftCfg->cfg)));
   cJSON_AddNumberToObject(pRoot, "isStandBy", pRaftCfg->isStandBy);
   cJSON_AddNumberToObject(pRoot, "snapshotStrategy", pRaftCfg->snapshotStrategy);
   cJSON_AddNumberToObject(pRoot, "batchSize", pRaftCfg->batchSize);
@@ -426,11 +425,7 @@ int32_t raftCfgFromJson(const cJSON *pRoot, SRaftCfg *pRaftCfg) {
     (pRaftCfg->configIndexArr)[i] = atoll(pIndex->valuestring);
   }
 
-  cJSON  *pJsonSyncCfg = cJSON_GetObjectItem(pJson, "SSyncCfg");
-  int32_t code = syncCfgFromJson(pJsonSyncCfg, &(pRaftCfg->cfg));
-  ASSERT(code == 0);
-
-  return code;
+  return 0;
 }
 
 int32_t raftCfgFromStr(const char *s, SRaftCfg *pRaftCfg) {

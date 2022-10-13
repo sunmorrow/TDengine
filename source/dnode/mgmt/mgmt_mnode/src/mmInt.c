@@ -35,6 +35,8 @@ static int32_t mmRequire(const SMgmtInputOpt *pInput, bool *required) {
 
   if (!option.deploy) {
     *required = mmDeployRequired(pInput);
+  } else {
+    *required = true;
   }
 
   return 0;
@@ -100,6 +102,7 @@ static int32_t mmOpen(SMgmtInputOpt *pInput, SMgmtOutputOpt *pOutput) {
     return -1;
   }
 
+  bool alreadyDeployed = option.deploy;
   if (!option.deploy) {
     dInfo("mnode start to deploy");
     pMgmt->pData->dnodeId = 1;
@@ -124,7 +127,7 @@ static int32_t mmOpen(SMgmtInputOpt *pInput, SMgmtOutputOpt *pOutput) {
   }
   tmsgReportStartup("mnode-worker", "initialized");
 
-  if (!option.deploy) {
+  if (!alreadyDeployed) {
     option.deploy = true;
     if (mndWriteFile(pMgmt->path, &option) != 0) {
       dError("failed to write mnode file since %s", terrstr());

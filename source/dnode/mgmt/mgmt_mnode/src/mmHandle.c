@@ -80,18 +80,19 @@ int32_t mmProcessCreateReq(const SMgmtInputOpt *pInput, SRpcMsg *pMsg) {
     return -1;
   }
 
-  if (createReq.replica != 1) {
-    terrno = TSDB_CODE_INVALID_OPTION;
-    dGError("failed to create mnode since %s", terrstr());
-    return -1;
+  SMnodeOpt option = {.deploy = true, .numOfReplicas = createReq.replica, .selfIndex = -1};
+  memcpy(option.replicas, createReq.replicas, sizeof(createReq.replicas));
+  for (int32_t i = 0; i < option.numOfReplicas; ++i) {
+    if (createReq.replicas[i].id == pInput->pData->dnodeId) {
+      option.selfIndex = i;
+    }
   }
 
-  SMnodeOpt option = {
-      .deploy = true,
-      .numOfReplicas = createReq.replica,
-      .selfIndex = createReq.selfIndex,
-  };
-  memcpy(option.replicas, createReq.replicas, sizeof(createReq.replicas));
+  if (option.selfIndex == -1) {
+    terrno = TSDB_CODE_INVALID_OPTION;
+    dGError("failed to create mnode since %s, selfIndex is -1", terrstr());
+    return -1;
+  }
 
   if (mndWriteFile(pInput->path, &option) != 0) {
     dGError("failed to write mnode file since %s", terrstr());

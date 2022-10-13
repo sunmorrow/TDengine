@@ -86,10 +86,10 @@ void syncCleanUp() {
   }
 }
 
-int64_t syncOpen(const SSyncInfo* pSyncInfo) {
+int64_t syncOpen(SSyncInfo* pSyncInfo) {
   SSyncNode* pSyncNode = syncNodeOpen(pSyncInfo);
   if (pSyncNode == NULL) {
-    sError("failed to open sync node. vgId:%d", pSyncInfo->vgId);
+    sError("vgId:%d, failed to open sync node since %s", pSyncInfo->vgId, terrstr());
     return -1;
   }
 
@@ -230,7 +230,7 @@ int32_t syncReconfigBuild(int64_t rid, const SSyncCfg* pNewCfg, SRpcMsg* pRpcMsg
   return ret;
 }
 
-int32_t syncReconfig(int64_t rid, const SSyncCfg* pNewCfg) {
+int32_t syncReconfig(int64_t rid, SSyncCfg* pNewCfg) {
   SSyncNode* pSyncNode = (SSyncNode*)taosAcquireRef(tsNodeRefId, rid);
   if (pSyncNode == NULL) {
     terrno = TSDB_CODE_SYN_INTERNAL_ERROR;
@@ -238,6 +238,7 @@ int32_t syncReconfig(int64_t rid, const SSyncCfg* pNewCfg) {
   }
   ASSERT(rid == pSyncNode->rid);
 
+#if 0
   if (!syncNodeCheckNewConfig(pSyncNode, pNewCfg)) {
     taosReleaseRef(tsNodeRefId, pSyncNode->rid);
     terrno = TSDB_CODE_SYN_NEW_CONFIG_ERROR;
@@ -259,6 +260,12 @@ int32_t syncReconfig(int64_t rid, const SSyncCfg* pNewCfg) {
 
   taosReleaseRef(tsNodeRefId, pSyncNode->rid);
   return ret;
+#else
+  syncNodeUpdateNewConfigIndex(pSyncNode, pNewCfg);
+  syncNodeDoConfigChange(pSyncNode, pNewCfg, 0);
+  taosReleaseRef(tsNodeRefId, pSyncNode->rid);
+  return 0;
+#endif
 }
 
 int32_t syncLeaderTransfer(int64_t rid) {
@@ -919,8 +926,8 @@ _END:
 }
 
 // open/close --------------
-SSyncNode* syncNodeOpen(const SSyncInfo* pOldSyncInfo) {
-  SSyncInfo* pSyncInfo = (SSyncInfo*)pOldSyncInfo;
+SSyncNode* syncNodeOpen(SSyncInfo* pSyncInfo) {
+  int32_t ret = 0;
 
   SSyncNode* pSyncNode = (SSyncNode*)taosMemoryCalloc(1, sizeof(SSyncNode));
   if (pSyncNode == NULL) {
@@ -928,7 +935,6 @@ SSyncNode* syncNodeOpen(const SSyncInfo* pOldSyncInfo) {
     goto _error;
   }
 
-  int32_t ret = 0;
   if (!taosDirExist((char*)(pSyncInfo->path))) {
     if (taosMkDir(pSyncInfo->path) != 0) {
       terrno = TAOS_SYSTEM_ERROR(errno);
@@ -947,15 +953,15 @@ SSyncNode* syncNodeOpen(const SSyncInfo* pOldSyncInfo) {
     meta.batchSize = pSyncInfo->batchSize;
     ret = raftCfgCreateFile((SSyncCfg*)&(pSyncInfo->syncCfg), meta, pSyncNode->configPath);
     if (ret != 0) {
-        sError("failed to create raft cfg file. configPath: %s", pSyncNode->configPath);
-        goto _error;
+      sError("failed to create raft cfg file. configPath: %s", pSyncNode->configPath);
+      goto _error;
     }
   } else {
     // update syncCfg by raft_config.json
     pSyncNode->pRaftCfg = raftCfgOpen(pSyncNode->configPath);
     if (pSyncNode->pRaftCfg == NULL) {
-        sError("failed to open raft cfg file. path:%s", pSyncNode->configPath);
-        goto _error;
+      sError("failed to open raft cfg file. path:%s", pSyncNode->configPath);
+      goto _error;
     }
     pSyncInfo->syncCfg = pSyncNode->pRaftCfg->cfg;
 
@@ -981,12 +987,13 @@ SSyncNode* syncNodeOpen(const SSyncInfo* pOldSyncInfo) {
     sError("failed to open raft cfg file. path:%s", pSyncNode->configPath);
     goto _error;
   }
+  pSyncNode->pRaftCfg->cfg = pSyncInfo->syncCfg;
 
   // init internal
   pSyncNode->myNodeInfo = pSyncNode->pRaftCfg->cfg.nodeInfo[pSyncNode->pRaftCfg->cfg.myIndex];
   if (!syncUtilnodeInfo2raftId(&pSyncNode->myNodeInfo, pSyncNode->vgId, &pSyncNode->myRaftId)) {
-      sError("failed to determine my raft member id. vgId:%d", pSyncNode->vgId);
-      goto _error;
+    sError("failed to determine my raft member id. vgId:%d", pSyncNode->vgId);
+    goto _error;
   }
 
   // init peersNum, peers, peersId
@@ -1000,8 +1007,8 @@ SSyncNode* syncNodeOpen(const SSyncInfo* pOldSyncInfo) {
   }
   for (int i = 0; i < pSyncNode->peersNum; ++i) {
     if (!syncUtilnodeInfo2raftId(&pSyncNode->peersNodeInfo[i], pSyncNode->vgId, &pSyncNode->peersId[i])) {
-       sError("failed to determine raft member id. vgId:%d, peer:%d", pSyncNode->vgId, i);
-       goto _error;
+      sError("failed to determine raft member id. vgId:%d, peer:%d", pSyncNode->vgId, i);
+      goto _error;
     }
   }
 
@@ -1090,8 +1097,8 @@ SSyncNode* syncNodeOpen(const SSyncInfo* pOldSyncInfo) {
     SSnapshot snapshot = {0};
     int32_t   code = pSyncNode->pFsm->FpGetSnapshotInfo(pSyncNode->pFsm, &snapshot);
     if (code != 0) {
-       sError("failed to get snapshot info. vgId:%d, code:%d", pSyncNode->vgId, code);
-       goto _error;
+      sError("failed to get snapshot info. vgId:%d, code:%d", pSyncNode->vgId, code);
+      goto _error;
     }
     if (snapshot.lastApplyIndex > commitIndex) {
       commitIndex = snapshot.lastApplyIndex;
@@ -1191,8 +1198,8 @@ SSyncNode* syncNodeOpen(const SSyncInfo* pOldSyncInfo) {
 
 _error:
   if (pSyncInfo->pFsm) {
-      taosMemoryFree(pSyncInfo->pFsm);
-      pSyncInfo->pFsm = NULL;
+    taosMemoryFree(pSyncInfo->pFsm);
+    pSyncInfo->pFsm = NULL;
   }
   syncNodeClose(pSyncNode);
   pSyncNode = NULL;

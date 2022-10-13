@@ -246,6 +246,10 @@ void mndGetMnodeEpSet(SMnode *pMnode, SEpSet *pEpSet) {
   if (pEpSet->numOfEps == 0) {
     syncGetRetryEpSet(pMnode->syncMgmt.sync, pEpSet);
   }
+
+  if (pEpSet->inUse >= pEpSet->numOfEps) {
+    pEpSet->inUse = 0;
+  }
 }
 
 static int32_t mndSetCreateMnodeRedoLogs(SMnode *pMnode, STrans *pTrans, SMnodeObj *pObj) {
@@ -365,9 +369,12 @@ static int32_t mndSetCreateMnodeRedoActions(SMnode *pMnode, STrans *pTrans, SDno
   createReq.replicas[numOfReplicas].port = pDnode->port;
   memcpy(createReq.replicas[numOfReplicas].fqdn, pDnode->fqdn, TSDB_FQDN_LEN);
 
+  createEpset.inUse = 0;
   createEpset.numOfEps = 1;
   createEpset.eps[0].port = pDnode->port;
   memcpy(createEpset.eps[0].fqdn, pDnode->fqdn, TSDB_FQDN_LEN);
+
+  alterEpset.numOfEps = numOfReplicas;
 
   if (mndBuildCreateMnodeRedoAction(pTrans, &createReq, &createEpset) != 0) return -1;
   if (mndBuildAlterMnodeRedoAction(pTrans, &createReq, &alterEpset) != 0) return -1;
@@ -678,20 +685,32 @@ static int32_t mndProcessAlterMnodeReq(SRpcMsg *pReq) {
     return -1;
   }
 
-  // SMnodeOpt opt = {0};
-  // mndWriteFile();
+  SMnodeOpt option = {.deploy = true, .numOfReplicas = alterReq.replica, .selfIndex = -1};
+  memcpy(option.replicas, alterReq.replicas, sizeof(alterReq.replicas));
+  for (int32_t i = 0; i < option.numOfReplicas; ++i) {
+    if (alterReq.replicas[i].id == pMnode->selfDnodeId) {
+      option.selfIndex = i;
+    }
+  }
 
-  // SSync Cfg = {0};
-  // syncReconfig(set config)
+  if (option.selfIndex == -1) {
+    mInfo("alter mnode not processed since selfIndex is -1", terrstr());
+    return 0;
+  }
 
+  if (mndWriteFile(pMnode->path, &option) != 0) {
+    mError("failed to write mnode file since %s", terrstr());
+    return -1;
+  }
 
-#if 0
   SSyncCfg cfg = {.replicaNum = alterReq.replica, .myIndex = -1};
   for (int32_t i = 0; i < alterReq.replica; ++i) {
     SNodeInfo *pNode = &cfg.nodeInfo[i];
     tstrncpy(pNode->nodeFqdn, alterReq.replicas[i].fqdn, sizeof(pNode->nodeFqdn));
     pNode->nodePort = alterReq.replicas[i].port;
-    if (alterReq.replicas[i].id == pMnode->selfDnodeId) cfg.myIndex = i;
+    if (alterReq.replicas[i].id == pMnode->selfDnodeId) {
+      cfg.myIndex = i;
+    }
   }
 
   if (cfg.myIndex == -1) {
@@ -705,25 +724,12 @@ static int32_t mndProcessAlterMnodeReq(SRpcMsg *pReq) {
     }
   }
 
-  mInfo("trans:-1, sync reconfig will be proposed");
-
-  SSyncMgmt *pMgmt = &pMnode->syncMgmt;
-  pMgmt->standby = 0;
-  int32_t code = syncReconfig(pMgmt->sync, &cfg);
+  int32_t code = syncReconfig(pMnode->syncMgmt.sync, &cfg);
   if (code != 0) {
-    mError("trans:-1, failed to propose sync reconfig since %s", terrstr());
-    return code;
+    mError("failed to sync reconfig since %s", terrstr());
   } else {
-    pMgmt->errCode = 0;
-    taosWLockLatch(&pMgmt->lock);
-    pMgmt->transId = -1;
-    taosWUnLockLatch(&pMgmt->lock);
-    tsem_wait(&pMgmt->syncSem);
-    mInfo("alter mnode sync result:0x%x %s", pMgmt->errCode, tstrerror(pMgmt->errCode));
-    terrno = pMgmt->errCode;
-    return pMgmt->errCode;
+    mInfo("alter mnode sync success");
   }
 
-#endif
-  return 0;
+  return code;
 }

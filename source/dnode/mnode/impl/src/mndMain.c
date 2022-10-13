@@ -582,7 +582,7 @@ static int32_t mndCheckMnodeState(SRpcMsg *pMsg) {
   mndGetMnodeEpSet(pMsg->info.node, &epSet);
 
   const STraceId *trace = &pMsg->info.traceId;
-  mError("msg:%p, failed to check mnode state since %s, type:%s, numOfMnodes:%d inUse:%d", pMsg, terrstr(),
+  mDebug("msg:%p, failed to check mnode state since %s, type:%s, numOfMnodes:%d inUse:%d", pMsg, terrstr(),
          TMSG_INFO(pMsg->msgType), epSet.numOfEps, epSet.inUse);
 
   if (epSet.numOfEps > 0) {

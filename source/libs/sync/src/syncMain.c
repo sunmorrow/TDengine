@@ -963,7 +963,9 @@ SSyncNode* syncNodeOpen(SSyncInfo* pSyncInfo) {
       sError("failed to open raft cfg file. path:%s", pSyncNode->configPath);
       goto _error;
     }
-    pSyncInfo->syncCfg = pSyncNode->pRaftCfg->cfg;
+    if (pSyncInfo->syncCfg.replicaNum == 0) {
+      pSyncInfo->syncCfg = pSyncNode->pRaftCfg->cfg;
+    }
 
     raftCfgClose(pSyncNode->pRaftCfg);
     pSyncNode->pRaftCfg = NULL;

@@ -812,17 +812,19 @@ static int32_t vnodeProcessSubmitReq(SVnode *pVnode, int64_t version, void *pReq
   SSubmitReq    *pSubmitReq = (SSubmitReq *)pReq;
   SSubmitRsp     submitRsp = {0};
   SSubmitMsgIter msgIter = {0};
-  SSubmitBlk    *pBlock;
+  SSubmitBlk    *pBlock = NULL;
   SVCreateTbReq  createTbReq = {0};
   SDecoder       decoder = {0};
-  int32_t        nRows;
+  int32_t        nRows = 0;
   int32_t        tsize, ret;
   SEncoder       encoder = {0};
   SArray        *newTbUids = NULL;
+  SVStatis       statis = {0};
   terrno = TSDB_CODE_SUCCESS;
 
   pRsp->code = 0;
   pSubmitReq->version = version;
+  statis.nBatchInsert = 1;
 
 #ifdef TD_DEBUG_PRINT_ROW
   vnodeDebugPrintSubmitMsg(pVnode, pReq, __func__);
@@ -947,8 +949,15 @@ _exit:
   // 1/level 2.
   // TODO: refactor
   if ((terrno == TSDB_CODE_SUCCESS) && (pRsp->code == TSDB_CODE_SUCCESS)) {
+    statis.nBatchInsertSuccess = 1;
     tdProcessRSmaSubmit(pVnode->pSma, pReq, STREAM_INPUT__DATA_SUBMIT);
   }
+
+  // N.B. not strict as the following procedure is not atomic
+  atomic_add_fetch_64(&pVnode->statis.nInsert, submitRsp.numOfRows);
+  atomic_add_fetch_64(&pVnode->statis.nInsertSuccess, submitRsp.affectedRows);
+  atomic_add_fetch_64(&pVnode->statis.nBatchInsert, statis.nBatchInsert);
+  atomic_add_fetch_64(&pVnode->statis.nBatchInsertSuccess, statis.nBatchInsertSuccess);
 
   vDebug("vgId:%d, submit success, index:%" PRId64, pVnode->config.vgId, version);
   return 0;

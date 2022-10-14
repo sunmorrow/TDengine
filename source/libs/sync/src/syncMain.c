@@ -52,9 +52,9 @@ int32_t syncNodeOnPingCb(SSyncNode* ths, SyncPing* pMsg);
 int32_t syncNodeOnPingReplyCb(SSyncNode* ths, SyncPingReply* pMsg);
 
 // ---------------------------------
-static void syncNodeFreeCb(void *param) {
-    syncNodeClose(param);
-    param = NULL;
+static void syncNodeFreeCb(void* param) {
+  syncNodeClose(param);
+  param = NULL;
 }
 
 int32_t syncInit() {
@@ -1017,9 +1017,9 @@ SSyncNode* syncNodeOpen(SSyncInfo* pSyncInfo) {
   // init replicaNum, replicasId
   pSyncNode->replicaNum = pSyncNode->pRaftCfg->cfg.replicaNum;
   for (int i = 0; i < pSyncNode->pRaftCfg->cfg.replicaNum; ++i) {
-    if(!syncUtilnodeInfo2raftId(&pSyncNode->pRaftCfg->cfg.nodeInfo[i], pSyncNode->vgId, &pSyncNode->replicasId[i])) {
-       sError("failed to determine raft member id. vgId:%d, replica:%d", pSyncNode->vgId, i);
-       goto _error;
+    if (!syncUtilnodeInfo2raftId(&pSyncNode->pRaftCfg->cfg.nodeInfo[i], pSyncNode->vgId, &pSyncNode->replicasId[i])) {
+      sError("failed to determine raft member id. vgId:%d, replica:%d", pSyncNode->vgId, i);
+      goto _error;
     }
   }
 

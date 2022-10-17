@@ -15,23 +15,22 @@
 
 #include "tsdb.h"
 
-static int32_t tsdbFSToJson(STsdbFS *pFS, SJson *pJson) {
+static int32_t tsdbFSToJson(void *pObj, SJson *pJson) {
   int32_t code = 0;
-  int32_t lino = 0;
+
+  STsdbFS *pFS = (STsdbFS *)pObj;
 
   // pDelFile
-  if (pFS->pDelFile) {
-    if (tjsonAddIntegerToObject(pJson, "commit id", pFS->pDelFile->commitID) < 0) {
-      // TODO
-    }
-    if (tjsonAddIntegerToObject(pJson, "size", pFS->pDelFile->size) < 0) {
-      // TODO
-    }
-    if (tjsonAddIntegerToObject(pJson, "offset", pFS->pDelFile->offset) < 0) {
-    }
+  if (tjsonAddObject(pJson, "tombstone", tsdbDelFileToJson, pFS->pDelFile) < 0) {
+    // TODO
+    goto _exit;
   }
 
   // aDFileSet
+  if (tjsonAddArray(pJson, "time series data", NULL, pFS->aDFileSet, 0, 0) < 0) {
+    // TODO
+    goto _exit;
+  }
 
 _exit:
   return code;
@@ -46,7 +45,7 @@ _exit:
 }
 
 // =================================================================================================
-static int32_t tsdbEncodeFS(uint8_t *p, STsdbFS *pFS) {
+int32_t tsdbEncodeFS(uint8_t *p, STsdbFS *pFS) {
   int32_t  n = 0;
   int8_t   hasDel = pFS->pDelFile ? 1 : 0;
   uint32_t nSet = taosArrayGetSize(pFS->aDFileSet);

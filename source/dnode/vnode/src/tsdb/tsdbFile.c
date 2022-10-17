@@ -25,7 +25,7 @@ int32_t tPutHeadFile(uint8_t *p, SHeadFile *pHeadFile) {
   return n;
 }
 
-static int32_t tGetHeadFile(uint8_t *p, SHeadFile *pHeadFile) {
+int32_t tGetHeadFile(uint8_t *p, SHeadFile *pHeadFile) {
   int32_t n = 0;
 
   n += tGetI64v(p + n, &pHeadFile->commitID);
@@ -44,7 +44,7 @@ int32_t tPutDataFile(uint8_t *p, SDataFile *pDataFile) {
   return n;
 }
 
-static int32_t tGetDataFile(uint8_t *p, SDataFile *pDataFile) {
+int32_t tGetDataFile(uint8_t *p, SDataFile *pDataFile) {
   int32_t n = 0;
 
   n += tGetI64v(p + n, &pDataFile->commitID);
@@ -63,7 +63,7 @@ int32_t tPutSttFile(uint8_t *p, SSttFile *pSttFile) {
   return n;
 }
 
-static int32_t tGetSttFile(uint8_t *p, SSttFile *pSttFile) {
+int32_t tGetSttFile(uint8_t *p, SSttFile *pSttFile) {
   int32_t n = 0;
 
   n += tGetI64v(p + n, &pSttFile->commitID);
@@ -82,7 +82,7 @@ int32_t tPutSmaFile(uint8_t *p, SSmaFile *pSmaFile) {
   return n;
 }
 
-static int32_t tGetSmaFile(uint8_t *p, SSmaFile *pSmaFile) {
+int32_t tGetSmaFile(uint8_t *p, SSmaFile *pSmaFile) {
   int32_t n = 0;
 
   n += tGetI64v(p + n, &pSmaFile->commitID);

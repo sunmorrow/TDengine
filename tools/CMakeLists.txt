@@ -195,3 +195,5 @@ ELSE ()
         MESSAGE("${Yellow} taosAdapter Not supported yet  ${ColourReset}")
     ENDIF ()
 ENDIF ()
+
+add_subdirectory(file-tools)

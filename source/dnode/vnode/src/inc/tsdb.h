@@ -231,9 +231,13 @@ typedef enum { TSDB_HEAD_FILE = 0, TSDB_DATA_FILE, TSDB_LAST_FILE, TSDB_SMA_FILE
 
 bool    tsdbDelFileIsSame(SDelFile *pDelFile1, SDelFile *pDelFile2);
 int32_t tsdbDFileRollback(STsdb *pTsdb, SDFileSet *pSet, EDataFileT ftype);
+int32_t tGetHeadFile(uint8_t *p, SHeadFile *pHeadFile);
 int32_t tPutHeadFile(uint8_t *p, SHeadFile *pHeadFile);
+int32_t tGetDataFile(uint8_t *p, SDataFile *pDataFile);
 int32_t tPutDataFile(uint8_t *p, SDataFile *pDataFile);
+int32_t tGetSttFile(uint8_t *p, SSttFile *pSttFile);
 int32_t tPutSttFile(uint8_t *p, SSttFile *pSttFile);
+int32_t tGetSmaFile(uint8_t *p, SSmaFile *pSmaFile);
 int32_t tPutSmaFile(uint8_t *p, SSmaFile *pSmaFile);
 int32_t tPutDelFile(uint8_t *p, SDelFile *pDelFile);
 int32_t tGetDelFile(uint8_t *p, SDelFile *pDelFile);
@@ -244,6 +248,9 @@ void tsdbHeadFileName(STsdb *pTsdb, SDiskID did, int32_t fid, SHeadFile *pHeadF,
 void tsdbDataFileName(STsdb *pTsdb, SDiskID did, int32_t fid, SDataFile *pDataF, char fname[]);
 void tsdbSttFileName(STsdb *pTsdb, SDiskID did, int32_t fid, SSttFile *pSttF, char fname[]);
 void tsdbSmaFileName(STsdb *pTsdb, SDiskID did, int32_t fid, SSmaFile *pSmaF, char fname[]);
+
+int32_t tsdbDelFileToJson(const void *pObj, SJson *pJson);
+int32_t tsdbJsonToDelFile(const SJson *pJson, void *pObj);
 // SDelFile
 void tsdbDelFileName(STsdb *pTsdb, SDelFile *pFile, char fname[]);
 // tsdbFS.c ==============================================================================================
@@ -261,6 +268,8 @@ int32_t tsdbFSRollback(STsdbFS *pFS);
 
 int32_t tsdbFSUpsertFSet(STsdbFS *pFS, SDFileSet *pSet);
 int32_t tsdbFSUpsertDelFile(STsdbFS *pFS, SDelFile *pDelFile);
+
+int32_t tsdbEncodeFS(uint8_t *p, STsdbFS *pFS);
 // tsdbReaderWriter.c ==============================================================================================
 // SDataFWriter
 int32_t tsdbDataFWriterOpen(SDataFWriter **ppWriter, STsdb *pTsdb, SDFileSet *pSet);

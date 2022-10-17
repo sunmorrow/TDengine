@@ -15,6 +15,36 @@
 
 #include "tsdb.h"
 
+static int32_t tsdbFSToJson(STsdbFS *pFS, SJson *pJson) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  // pDelFile
+  if (pFS->pDelFile) {
+    if (tjsonAddIntegerToObject(pJson, "commit id", pFS->pDelFile->commitID) < 0) {
+      // TODO
+    }
+    if (tjsonAddIntegerToObject(pJson, "size", pFS->pDelFile->size) < 0) {
+      // TODO
+    }
+    if (tjsonAddIntegerToObject(pJson, "offset", pFS->pDelFile->offset) < 0) {
+    }
+  }
+
+  // aDFileSet
+
+_exit:
+  return code;
+}
+
+static int32_t tsdbJsonToFS(const SJson *pJson, STsdbFS *pFS) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
 // =================================================================================================
 static int32_t tsdbEncodeFS(uint8_t *p, STsdbFS *pFS) {
   int32_t  n = 0;

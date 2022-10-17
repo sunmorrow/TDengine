@@ -46,8 +46,8 @@ extern "C" {
 extern const SVnodeCfg vnodeCfgDefault;
 
 int32_t vnodeCheckCfg(const SVnodeCfg*);
-int32_t vnodeEncodeConfig(const void* pObj, SJson* pJson);
-int32_t vnodeDecodeConfig(const SJson* pJson, void* pObj);
+int32_t vnodeCfgToJson(const void* pObj, SJson* pJson);
+int32_t vnodeJsonToCfg(const SJson* pJson, void* pObj);
 
 // vnodeModule.c
 int32_t vnodeScheduleTask(int32_t (*execute)(void*), void* arg);

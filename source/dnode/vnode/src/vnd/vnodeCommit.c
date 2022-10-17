@@ -241,7 +241,7 @@ int vnodeCommit(SVnode *pVnode) {
 
   // preCommit
   // smaSyncPreCommit(pVnode->pSma);
-  if(smaAsyncPreCommit(pVnode->pSma) < 0){
+  if (smaAsyncPreCommit(pVnode->pSma) < 0) {
     vError("vgId:%d, failed to async pre-commit sma since %s", TD_VID(pVnode), tstrerror(terrno));
     return -1;
   }
@@ -333,7 +333,7 @@ static int vnodeEndCommit(SVnode *pVnode) {
 
 static FORCE_INLINE void vnodeWaitCommit(SVnode *pVnode) { tsem_wait(&pVnode->canCommit); }
 
-static int vnodeEncodeState(const void *pObj, SJson *pJson) {
+static int vnodeStateToJson(const void *pObj, SJson *pJson) {
   const SVState *pState = (SVState *)pObj;
 
   if (tjsonAddIntegerToObject(pJson, "commit version", pState->committed) < 0) return -1;
@@ -343,7 +343,7 @@ static int vnodeEncodeState(const void *pObj, SJson *pJson) {
   return 0;
 }
 
-static int vnodeDecodeState(const SJson *pJson, void *pObj) {
+static int vnodeJsonToState(const SJson *pJson, void *pObj) {
   SVState *pState = (SVState *)pObj;
 
   int32_t code;
@@ -368,11 +368,11 @@ static int vnodeEncodeInfo(const SVnodeInfo *pInfo, char **ppData) {
     return -1;
   }
 
-  if (tjsonAddObject(pJson, "config", vnodeEncodeConfig, (void *)&pInfo->config) < 0) {
+  if (tjsonAddObject(pJson, "config", vnodeCfgToJson, (void *)&pInfo->config) < 0) {
     goto _err;
   }
 
-  if (tjsonAddObject(pJson, "state", vnodeEncodeState, (void *)&pInfo->state) < 0) {
+  if (tjsonAddObject(pJson, "state", vnodeStateToJson, (void *)&pInfo->state) < 0) {
     goto _err;
   }
 
@@ -399,11 +399,11 @@ static int vnodeDecodeInfo(uint8_t *pData, SVnodeInfo *pInfo) {
     return -1;
   }
 
-  if (tjsonToObject(pJson, "config", vnodeDecodeConfig, (void *)&pInfo->config) < 0) {
+  if (tjsonToObject(pJson, "config", vnodeJsonToCfg, (void *)&pInfo->config) < 0) {
     goto _err;
   }
 
-  if (tjsonToObject(pJson, "state", vnodeDecodeState, (void *)&pInfo->state) < 0) {
+  if (tjsonToObject(pJson, "state", vnodeJsonToState, (void *)&pInfo->state) < 0) {
     goto _err;
   }
 

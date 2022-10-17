@@ -57,7 +57,7 @@ int vnodeCheckCfg(const SVnodeCfg *pCfg) {
   return 0;
 }
 
-int vnodeEncodeConfig(const void *pObj, SJson *pJson) {
+int vnodeCfgToJson(const void *pObj, SJson *pJson) {
   const SVnodeCfg *pCfg = (SVnodeCfg *)pObj;
 
   if (tjsonAddIntegerToObject(pJson, "vgId", pCfg->vgId) < 0) return -1;
@@ -141,7 +141,7 @@ int vnodeEncodeConfig(const void *pObj, SJson *pJson) {
   return 0;
 }
 
-int vnodeDecodeConfig(const SJson *pJson, void *pObj) {
+int vnodeJsonToCfg(const SJson *pJson, void *pObj) {
   SVnodeCfg *pCfg = (SVnodeCfg *)pObj;
 
   int32_t code;

@@ -273,3 +273,198 @@ int32_t tGetDelFile(uint8_t *p, SDelFile *pDelFile) {
 
   return n;
 }
+
+int32_t tsdbDelFileToJson(const void *pObj, SJson *pJson) {
+  int32_t code = 0;
+
+  if (pObj == NULL) goto _exit;
+
+  SDelFile *pDelFile = (SDelFile *)pObj;
+
+  if (tjsonAddIntegerToObject(pJson, "commit id", pDelFile->commitID) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+  if (tjsonAddIntegerToObject(pJson, "size", pDelFile->size) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+  if (tjsonAddIntegerToObject(pJson, "offset", pDelFile->offset) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+_exit:
+  return code;
+}
+
+int32_t tsdbJsonToDelFile(const SJson *pJson, void *pObj) {
+  int32_t code = 0;
+
+  SDelFile *pDelFile = (SDelFile *)pObj;
+
+  tjsonGetNumberValue(pJson, "commit id", pDelFile->commitID, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+  tjsonGetNumberValue(pJson, "size", pDelFile->size, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+  tjsonGetNumberValue(pJson, "offset", pDelFile->offset, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+_exit:
+  return code;
+}
+
+int32_t tsdbHeadFileToJson(const void *pObj, SJson *pJson) {
+  int32_t code = 0;
+
+  SHeadFile *pHeadFile = (SHeadFile *)pObj;
+
+  if (tjsonAddIntegerToObject(pJson, "commit id", pHeadFile->commitID) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+  if (tjsonAddIntegerToObject(pJson, "size", pHeadFile->size) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+  if (tjsonAddIntegerToObject(pJson, "offset", pHeadFile->offset) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+_exit:
+  return code;
+}
+
+int32_t tsdbJsonToHeadFile(const SJson *pJson, void *pObj) {
+  int32_t code = 0;
+
+  SHeadFile *pHeadFile = (SHeadFile *)pObj;
+
+  tjsonGetNumberValue(pJson, "commit id", pHeadFile->commitID, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+  tjsonGetNumberValue(pJson, "size", pHeadFile->size, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+  tjsonGetNumberValue(pJson, "offset", pHeadFile->offset, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+_exit:
+  return code;
+}
+
+int32_t tsdbDataFileToJson(const void *pObj, SJson *pJson) {
+  int32_t code = 0;
+
+  SDataFile *pDataFile = (SDataFile *)pObj;
+
+  if (tjsonAddIntegerToObject(pJson, "commit id", pDataFile->commitID) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+  if (tjsonAddIntegerToObject(pJson, "size", pDataFile->size) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+_exit:
+  return code;
+}
+
+int32_t tsdbJsonToDataFile(const SJson *pJson, void *pObj) {
+  int32_t code = 0;
+
+  SDataFile *pDataFile = (SDataFile *)pObj;
+
+  tjsonGetNumberValue(pJson, "commit id", pDataFile->commitID, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+  tjsonGetNumberValue(pJson, "size", pDataFile->size, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+_exit:
+  return code;
+}
+
+int32_t tsdbSttFileToJson(const void *pObj, SJson *pJson) {
+  int32_t code = 0;
+
+  SSttFile *pSttFile = (SSttFile *)pObj;
+
+  if (tjsonAddIntegerToObject(pJson, "commit id", pSttFile->commitID) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+  if (tjsonAddIntegerToObject(pJson, "size", pSttFile->size) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+  if (tjsonAddIntegerToObject(pJson, "offset", pSttFile->offset) < 0) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    goto _exit;
+  }
+
+_exit:
+  return code;
+}
+
+int32_t tsdbJsonToSttFile(const SJson *pJson, void *pObj) {
+  int32_t code = 0;
+
+  SSttFile *pSttFile = (SSttFile *)pObj;
+
+  tjsonGetNumberValue(pJson, "commit id", pSttFile->commitID, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+  tjsonGetNumberValue(pJson, "size", pSttFile->size, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+  tjsonGetNumberValue(pJson, "offset", pSttFile->offset, code);
+  if (code < 0) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    goto _exit;
+  }
+
+_exit:
+  return code;
+}

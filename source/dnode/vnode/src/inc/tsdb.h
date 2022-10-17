@@ -254,7 +254,7 @@ int32_t tsdbJsonToDelFile(const SJson *pJson, void *pObj);
 // SDelFile
 void tsdbDelFileName(STsdb *pTsdb, SDelFile *pFile, char fname[]);
 // tsdbFS.c ==============================================================================================
-int32_t tsdbFSOpen(STsdb *pTsdb);
+int32_t tsdbFSOpen(STsdb *pTsdb, int8_t rollback);
 int32_t tsdbFSClose(STsdb *pTsdb);
 int32_t tsdbFSCopy(STsdb *pTsdb, STsdbFS *pFS);
 void    tsdbFSDestroy(STsdbFS *pFS);
@@ -264,7 +264,8 @@ int32_t tsdbFSCommit2(STsdb *pTsdb, STsdbFS *pFS);
 int32_t tsdbFSRef(STsdb *pTsdb, STsdbFS *pFS);
 void    tsdbFSUnref(STsdb *pTsdb, STsdbFS *pFS);
 
-int32_t tsdbFSRollback(STsdbFS *pFS);
+int32_t tsdbFSCommit(STsdb *pTsdb);
+int32_t tsdbFSRollback(STsdb *pTsdb);
 
 int32_t tsdbFSUpsertFSet(STsdbFS *pFS, SDFileSet *pSet);
 int32_t tsdbFSUpsertDelFile(STsdbFS *pFS, SDelFile *pDelFile);

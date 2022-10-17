@@ -149,7 +149,7 @@ typedef struct {
 int32_t metaGetStbStats(SMeta* pMeta, int64_t uid, SMetaStbStats* pInfo);
 
 // tsdb
-int         tsdbOpen(SVnode* pVnode, STsdb** ppTsdb, const char* dir, STsdbKeepCfg* pKeepCfg);
+int         tsdbOpen(SVnode* pVnode, STsdb** ppTsdb, const char* dir, STsdbKeepCfg* pKeepCfg, int8_t rollback);
 int         tsdbClose(STsdb** pTsdb);
 int32_t     tsdbBegin(STsdb* pTsdb);
 int32_t     tsdbCommit(STsdb* pTsdb);

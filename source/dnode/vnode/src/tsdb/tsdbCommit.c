@@ -1046,8 +1046,8 @@ static int32_t tsdbEndCommit(SCommitter *pCommitter, int32_t eno) {
   SMemTable *pMemTable = pTsdb->imem;
 
   ASSERT(eno == 0 &&
-    "tsdbCommit failure"
-    "Restart taosd");
+         "tsdbCommit failure"
+         "Restart taosd");
 
   code = tsdbFSCommit1(pTsdb, &pCommitter->fs);
   TSDB_CHECK_CODE(code, lino, _exit);
@@ -1076,6 +1076,35 @@ _exit:
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
   } else {
     tsdbInfo("vgId:%d tsdb end commit", TD_VID(pTsdb->pVnode));
+  }
+  return code;
+}
+
+int32_t tsdbPostCommit(STsdb *pTsdb, int8_t rollback) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  if (rollback) {
+    tsdbFSRollback(pTsdb);
+  } else {
+    SMemTable *pMemTable = pTsdb->imem;
+
+    taosThreadRwlockWrlock(&pTsdb->rwLock);
+
+    code = tsdbFSCommit(pTsdb);
+    if (code) {
+      taosThreadRwlockUnlock(&pTsdb->rwLock);
+      goto _exit;
+    }
+
+    taosThreadRwlockUnlock(&pTsdb->rwLock);
+
+    tsdbUnrefMemTable(pMemTable);
+  }
+
+_exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
   }
   return code;
 }

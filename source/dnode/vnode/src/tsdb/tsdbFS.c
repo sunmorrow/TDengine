@@ -15,35 +15,6 @@
 
 #include "tsdb.h"
 
-static int32_t tsdbFSToJson(void *pObj, SJson *pJson) {
-  int32_t code = 0;
-
-  STsdbFS *pFS = (STsdbFS *)pObj;
-
-  // pDelFile
-  if (tjsonAddObject(pJson, "tombstone", tsdbDelFileToJson, pFS->pDelFile) < 0) {
-    // TODO
-    goto _exit;
-  }
-
-  // aDFileSet
-  if (tjsonAddArray(pJson, "time series data", NULL, pFS->aDFileSet, 0, 0) < 0) {
-    // TODO
-    goto _exit;
-  }
-
-_exit:
-  return code;
-}
-
-static int32_t tsdbJsonToFS(const SJson *pJson, STsdbFS *pFS) {
-  int32_t code = 0;
-  int32_t lino = 0;
-  // TODO
-_exit:
-  return code;
-}
-
 // =================================================================================================
 int32_t tsdbEncodeFS(uint8_t *p, STsdbFS *pFS) {
   int32_t  n = 0;
@@ -443,6 +414,27 @@ _err:
   return code;
 }
 
+static void tsdbCurrentFileName(STsdb *pTsdb, char *current, char *current_t) {
+  SVnode *pVnode = pTsdb->pVnode;
+  if (pVnode->pTfs) {
+    if (current) {
+      snprintf(current, TSDB_FILENAME_LEN - 1, "%s%s%s%sCURRENT", tfsGetPrimaryPath(pTsdb->pVnode->pTfs), TD_DIRSEP,
+               pTsdb->path, TD_DIRSEP);
+    }
+    if (current_t) {
+      snprintf(current_t, TSDB_FILENAME_LEN - 1, "%s%s%s%sCURRENT.t", tfsGetPrimaryPath(pTsdb->pVnode->pTfs), TD_DIRSEP,
+               pTsdb->path, TD_DIRSEP);
+    }
+  } else {
+    if (current) {
+      snprintf(current, TSDB_FILENAME_LEN - 1, "%s%sCURRENT", pTsdb->path, TD_DIRSEP);
+    }
+    if (current_t) {
+      snprintf(current_t, TSDB_FILENAME_LEN - 1, "%s%sCURRENT.t", pTsdb->path, TD_DIRSEP);
+    }
+  }
+}
+
 // EXPOSED APIS ====================================================================================
 int32_t tsdbFSOpen(STsdb *pTsdb, int8_t rollback) {
   int32_t code = 0;
@@ -457,18 +449,10 @@ int32_t tsdbFSOpen(STsdb *pTsdb, int8_t rollback) {
   }
 
   // load fs or keep empty
-  char current[TSDB_FILENAME_LEN];
-  char current_t[TSDB_FILENAME_LEN];
+  char current[TSDB_FILENAME_LEN] = {0};
+  char current_t[TSDB_FILENAME_LEN] = {0};
 
-  if (pVnode->pTfs) {
-    snprintf(current, TSDB_FILENAME_LEN - 1, "%s%s%s%sCURRENT", tfsGetPrimaryPath(pTsdb->pVnode->pTfs), TD_DIRSEP,
-             pTsdb->path, TD_DIRSEP);
-    snprintf(current_t, TSDB_FILENAME_LEN - 1, "%s%s%s%sCURRENT.t", tfsGetPrimaryPath(pTsdb->pVnode->pTfs), TD_DIRSEP,
-             pTsdb->path, TD_DIRSEP);
-  } else {
-    snprintf(current, TSDB_FILENAME_LEN - 1, "%s%sCURRENT", pTsdb->path, TD_DIRSEP);
-    snprintf(current_t, TSDB_FILENAME_LEN - 1, "%s%sCURRENT.t", pTsdb->path, TD_DIRSEP);
-  }
+  tsdbCurrentFileName(pTsdb, current, current_t);
 
   if (!taosCheckExistFile(current)) {
     // empty one
@@ -649,10 +633,37 @@ _exit:
 }
 
 int32_t tsdbFSCommit(STsdb *pTsdb) {
-  int32_t code = 0;
-  int32_t lino = 0;
-  // TODO
+  int32_t  code = 0;
+  int32_t  lino = 0;
+  STsdbFS *pFS = NULL;
+
+  char current[TSDB_FILENAME_LEN] = {0};
+  char current_t[TSDB_FILENAME_LEN] = {0};
+
+  tsdbCurrentFileName(pTsdb, current, current_t);
+
+  if (taosCheckExistFile(current_t)) {
+    taosRenameFile(current_t, current);
+  }
+
+  if (!taosCheckExistFile(current)) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  // load FS (todo)
+  // code = tsdbLoadFSFromFile(current, &pFS);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  // merge new fs (todo)
+  code = tsdbFSCommit2(pTsdb, pFS);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
 _exit:
+  if (pFS) tsdbFSDestroy(pFS);
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  }
   return code;
 }
 

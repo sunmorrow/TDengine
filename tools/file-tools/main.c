@@ -92,7 +92,7 @@ int main(int argc, char const* argv[]) {
     int32_t   flags = TD_FILE_READ | TD_FILE_WRITE | TD_FILE_CREATE | TD_FILE_TRUNC;
     TdFilePtr pFD = taosOpenFile("CURRENT", flags);
 
-    int32_t n = tsdbEncodeFS(buf, &fs);
+    int32_t n = tsdbEncodeFSToBinary(buf, &fs);
     taosCalcChecksumAppend(0, buf, n + sizeof(TSCKSUM));
 
     taosWriteFile(pFD, buf, n + sizeof(TSCKSUM));

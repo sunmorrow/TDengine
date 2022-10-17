@@ -16,7 +16,7 @@
 #include "tsdb.h"
 
 // =================================================================================================
-int32_t tsdbEncodeFS(uint8_t *p, STsdbFS *pFS) {
+int32_t tsdbEncodeFSToBinary(uint8_t *p, STsdbFS *pFS) {
   int32_t  n = 0;
   int8_t   hasDel = pFS->pDelFile ? 1 : 0;
   uint32_t nSet = taosArrayGetSize(pFS->aDFileSet);
@@ -39,6 +39,78 @@ int32_t tsdbEncodeFS(uint8_t *p, STsdbFS *pFS) {
   return n;
 }
 
+static int32_t tsdbDecodeFSFromBinary(uint8_t *pData, int64_t nData, STsdbFS **ppFS) {
+  int32_t  code = 0;
+  int32_t  lino = 0;
+  int8_t   hasDel = 0;
+  uint32_t nSet = 0;
+  int32_t  n = 0;
+  STsdbFS *pFS = NULL;
+
+  // alloc
+  pFS = (STsdbFS *)taosMemoryCalloc(1, sizeof(*pFS));
+  if (pFS == NULL) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  // version
+  n += tGetI8(pData + n, NULL);
+
+  // SDelFile
+  n += tGetI8(pData + n, &hasDel);
+  if (hasDel) {
+    pFS->pDelFile = (SDelFile *)taosMemoryCalloc(1, sizeof(SDelFile));
+    if (pFS->pDelFile == NULL) {
+      code = TSDB_CODE_OUT_OF_MEMORY;
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+
+    pFS->pDelFile->nRef = 1;
+    n += tGetDelFile(pData + n, pFS->pDelFile);
+  } else {
+    pFS->pDelFile = NULL;
+  }
+
+  // SArray<SDFileSet>
+  n += tGetU32v(pData + n, &nSet);
+
+  pFS->aDFileSet = taosArrayInit(nSet, sizeof(SDFileSet));
+  if (pFS->aDFileSet == NULL) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  for (uint32_t iSet = 0; iSet < nSet; iSet++) {
+    SDFileSet fSet = {0};
+
+    int32_t nt = tGetDFileSet(pData + n, &fSet);
+    if (nt < 0) {
+      code = TSDB_CODE_OUT_OF_MEMORY;
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+
+    n += nt;
+
+    if (taosArrayPush(pFS->aDFileSet, &fSet) == NULL) {
+      code = TSDB_CODE_OUT_OF_MEMORY;
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+  }
+
+  ASSERT(n + sizeof(TSCKSUM) == nData);
+
+_exit:
+  if (code) {
+    *ppFS = NULL;
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+    tsdbFSDestroy(pFS);
+  } else {
+    *ppFS = pFS;
+  }
+  return code;
+}
+
 static int32_t tsdbGnrtCurrent(STsdb *pTsdb, STsdbFS *pFS, char *fname) {
   int32_t   code = 0;
   int64_t   n;
@@ -47,13 +119,13 @@ static int32_t tsdbGnrtCurrent(STsdb *pTsdb, STsdbFS *pFS, char *fname) {
   TdFilePtr pFD = NULL;
 
   // to binary
-  size = tsdbEncodeFS(NULL, pFS) + sizeof(TSCKSUM);
+  size = tsdbEncodeFSToBinary(NULL, pFS) + sizeof(TSCKSUM);
   pData = taosMemoryMalloc(size);
   if (pData == NULL) {
     code = TSDB_CODE_OUT_OF_MEMORY;
     goto _err;
   }
-  n = tsdbEncodeFS(pData, pFS);
+  n = tsdbEncodeFSToBinary(pData, pFS);
   ASSERT(n + sizeof(TSCKSUM) == size);
   taosCalcChecksumAppend(0, pData, size);
 
@@ -249,6 +321,8 @@ _err:
 // }
 
 void tsdbFSDestroy(STsdbFS *pFS) {
+  if (pFS == NULL) return;
+
   if (pFS->pDelFile) {
     taosMemoryFree(pFS->pDelFile);
   }
@@ -264,6 +338,7 @@ void tsdbFSDestroy(STsdbFS *pFS) {
   }
 
   taosArrayDestroy(pFS->aDFileSet);
+  taosMemoryFree(pFS);
 }
 
 static int32_t tsdbScanAndTryFixFS(STsdb *pTsdb) {
@@ -363,57 +438,6 @@ int32_t tDFileSetCmprFn(const void *p1, const void *p2) {
   return 0;
 }
 
-static int32_t tsdbRecoverFS(STsdb *pTsdb, uint8_t *pData, int64_t nData) {
-  int32_t  code = 0;
-  int8_t   hasDel;
-  uint32_t nSet;
-  int32_t  n = 0;
-
-  // version
-  n += tGetI8(pData + n, NULL);
-
-  // SDelFile
-  n += tGetI8(pData + n, &hasDel);
-  if (hasDel) {
-    pTsdb->fs.pDelFile = (SDelFile *)taosMemoryMalloc(sizeof(SDelFile));
-    if (pTsdb->fs.pDelFile == NULL) {
-      code = TSDB_CODE_OUT_OF_MEMORY;
-      goto _err;
-    }
-
-    pTsdb->fs.pDelFile->nRef = 1;
-    n += tGetDelFile(pData + n, pTsdb->fs.pDelFile);
-  } else {
-    pTsdb->fs.pDelFile = NULL;
-  }
-
-  // SArray<SDFileSet>
-  taosArrayClear(pTsdb->fs.aDFileSet);
-  n += tGetU32v(pData + n, &nSet);
-  for (uint32_t iSet = 0; iSet < nSet; iSet++) {
-    SDFileSet fSet = {0};
-
-    int32_t nt = tGetDFileSet(pData + n, &fSet);
-    if (nt < 0) {
-      code = TSDB_CODE_OUT_OF_MEMORY;
-      goto _err;
-    }
-
-    n += nt;
-
-    if (taosArrayPush(pTsdb->fs.aDFileSet, &fSet) == NULL) {
-      code = TSDB_CODE_OUT_OF_MEMORY;
-      goto _err;
-    }
-  }
-
-  ASSERT(n + sizeof(TSCKSUM) == nData);
-  return code;
-
-_err:
-  return code;
-}
-
 static void tsdbCurrentFileName(STsdb *pTsdb, char *current, char *current_t) {
   SVnode *pVnode = pTsdb->pVnode;
   if (pVnode->pTfs) {
@@ -433,6 +457,60 @@ static void tsdbCurrentFileName(STsdb *pTsdb, char *current, char *current_t) {
       snprintf(current_t, TSDB_FILENAME_LEN - 1, "%s%sCURRENT.t", pTsdb->path, TD_DIRSEP);
     }
   }
+}
+
+static int32_t tsdbLoadFSFromFile(STsdb *pTsdb, const char *fname, STsdbFS *pFS) {
+  int32_t  code = 0;
+  int32_t  lino = 0;
+  uint8_t *pData = NULL;
+  int64_t  size = 0;
+
+  TdFilePtr pFD = taosOpenFile(fname, TD_FILE_READ);
+  if (pFD == NULL) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  if (taosFStatFile(pFD, &size, NULL) < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    taosCloseFile(&pFD);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pData = taosMemoryMalloc(size);
+  if (pData == NULL) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    taosCloseFile(&pFD);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  int64_t n = taosReadFile(pFD, pData, size);
+  if (n < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    taosCloseFile(&pFD);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  if (!taosCheckChecksumWhole(pData, size)) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    taosCloseFile(&pFD);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  taosCloseFile(&pFD);
+
+  // recover fs
+  code = tsdbDecodeFSFromBinary(pData, size, &pFS);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+_exit:
+  if (pData) taosMemoryFree(pData);
+  if (code) {
+    tsdbFSDestroy(pFS);
+    tsdbError("vgId:%d %s failed at line %d since %s, fname: %s", TD_VID(pTsdb->pVnode), __func__, lino,
+              tstrerror(code), fname);
+  }
+  return code;
 }
 
 // EXPOSED APIS ====================================================================================
@@ -470,52 +548,8 @@ int32_t tsdbFSOpen(STsdb *pTsdb, int8_t rollback) {
       }
     }
 
-    // read
-    TdFilePtr pFD = taosOpenFile(current, TD_FILE_READ);
-    if (pFD == NULL) {
-      code = TAOS_SYSTEM_ERROR(errno);
-      goto _err;
-    }
-
-    int64_t size;
-    if (taosFStatFile(pFD, &size, NULL) < 0) {
-      code = TAOS_SYSTEM_ERROR(errno);
-      taosCloseFile(&pFD);
-      goto _err;
-    }
-
-    uint8_t *pData = taosMemoryMalloc(size);
-    if (pData == NULL) {
-      code = TSDB_CODE_OUT_OF_MEMORY;
-      taosCloseFile(&pFD);
-      goto _err;
-    }
-
-    int64_t n = taosReadFile(pFD, pData, size);
-    if (n < 0) {
-      code = TAOS_SYSTEM_ERROR(errno);
-      taosMemoryFree(pData);
-      taosCloseFile(&pFD);
-      goto _err;
-    }
-
-    if (!taosCheckChecksumWhole(pData, size)) {
-      code = TSDB_CODE_FILE_CORRUPTED;
-      taosMemoryFree(pData);
-      taosCloseFile(&pFD);
-      goto _err;
-    }
-
-    taosCloseFile(&pFD);
-
-    // recover fs
-    code = tsdbRecoverFS(pTsdb, pData, size);
-    if (code) {
-      taosMemoryFree(pData);
-      goto _err;
-    }
-
-    taosMemoryFree(pData);
+    code = tsdbLoadFSFromFile(pTsdb, current, &pTsdb->fs);
+    if (code) goto _err;
   }
 
   // scan and fix FS

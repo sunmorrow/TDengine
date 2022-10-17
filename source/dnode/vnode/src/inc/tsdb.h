@@ -270,7 +270,7 @@ int32_t tsdbFSRollback(STsdb *pTsdb);
 int32_t tsdbFSUpsertFSet(STsdbFS *pFS, SDFileSet *pSet);
 int32_t tsdbFSUpsertDelFile(STsdbFS *pFS, SDelFile *pDelFile);
 
-int32_t tsdbEncodeFS(uint8_t *p, STsdbFS *pFS);
+int32_t tsdbEncodeFSToBinary(uint8_t *p, STsdbFS *pFS);
 // tsdbReaderWriter.c ==============================================================================================
 // SDataFWriter
 int32_t tsdbDataFWriterOpen(SDataFWriter **ppWriter, STsdb *pTsdb, SDFileSet *pSet);

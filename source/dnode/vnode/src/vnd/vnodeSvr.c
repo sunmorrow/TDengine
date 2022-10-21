@@ -41,7 +41,10 @@ int32_t vnodePreProcessWriteMsg(SVnode *pVnode, SRpcMsg *pMsg) {
       int32_t nReqs;
 
       tDecoderInit(&dc, (uint8_t *)pMsg->pCont + sizeof(SMsgHead), pMsg->contLen - sizeof(SMsgHead));
-      tStartDecode(&dc);
+      if (tStartDecode(&dc) < 0) {
+        code = TSDB_CODE_INVALID_MSG;
+        return code;
+      }
 
       if (tDecodeI32v(&dc, &nReqs) < 0) {
         code = TSDB_CODE_INVALID_MSG;
@@ -50,7 +53,10 @@ int32_t vnodePreProcessWriteMsg(SVnode *pVnode, SRpcMsg *pMsg) {
       for (int32_t iReq = 0; iReq < nReqs; iReq++) {
         tb_uid_t uid = tGenIdPI64();
         char    *name = NULL;
-        tStartDecode(&dc);
+        if (tStartDecode(&dc) < 0) {
+          code = TSDB_CODE_INVALID_MSG;
+          goto _err;
+        }
 
         if (tDecodeI32v(&dc, NULL) < 0) {
           code = TSDB_CODE_INVALID_MSG;
@@ -167,9 +173,9 @@ int32_t vnodeProcessWriteMsg(SVnode *pVnode, SRpcMsg *pMsg, int64_t version, SRp
   int32_t ret;
 
   if (!pVnode->inUse) {
-     terrno = TSDB_CODE_VND_NOT_SYNCED;
-     vError("vgId:%d, not ready to write since %s", TD_VID(pVnode), terrstr());
-     return -1;
+    terrno = TSDB_CODE_VND_NOT_SYNCED;
+    vError("vgId:%d, not ready to write since %s", TD_VID(pVnode), terrstr());
+    return -1;
   }
 
   vDebug("vgId:%d, start to process write request %s, index:%" PRId64, TD_VID(pVnode), TMSG_INFO(pMsg->msgType),
@@ -293,14 +299,14 @@ int32_t vnodeProcessWriteMsg(SVnode *pVnode, SRpcMsg *pMsg, int64_t version, SRp
     vInfo("vgId:%d, commit at version %" PRId64, TD_VID(pVnode), version);
     // commit current change
     if (vnodeCommit(pVnode) < 0) {
-        vError("vgId:%d, failed to commit vnode since %s.", TD_VID(pVnode), tstrerror(terrno));
-        goto _err;
+      vError("vgId:%d, failed to commit vnode since %s.", TD_VID(pVnode), tstrerror(terrno));
+      goto _err;
     }
 
     // start a new one
     if (vnodeBegin(pVnode) < 0) {
-        vError("vgId:%d, failed to begin vnode since %s.", TD_VID(pVnode), tstrerror(terrno));
-        goto _err;
+      vError("vgId:%d, failed to begin vnode since %s.", TD_VID(pVnode), tstrerror(terrno));
+      goto _err;
     }
   }
 
@@ -799,15 +805,11 @@ static int32_t vnodeDebugPrintSingleSubmitMsg(SMeta *pMeta, SSubmitBlk *pBlock, 
 
   tInitSubmitBlkIter(msgIter, pBlock, &blkIter);
   if (blkIter.row == NULL) return 0;
-  if (!pSchema || (suid != msgIter->suid) || rv != TD_ROW_SVER(blkIter.row)) {
-    if (pSchema) {
-      taosMemoryFreeClear(pSchema);
-    }
-    pSchema = metaGetTbTSchema(pMeta, msgIter->suid, TD_ROW_SVER(blkIter.row), 1);  // TODO: use the real schema
-    if (pSchema) {
-      suid = msgIter->suid;
-      rv = TD_ROW_SVER(blkIter.row);
-    }
+
+  pSchema = metaGetTbTSchema(pMeta, msgIter->suid, TD_ROW_SVER(blkIter.row), 1);  // TODO: use the real schema
+  if (pSchema) {
+    suid = msgIter->suid;
+    rv = TD_ROW_SVER(blkIter.row);
   }
   if (!pSchema) {
     printf("%s:%d no valid schema\n", tags, __LINE__);
@@ -1066,20 +1068,20 @@ static int32_t vnodeProcessAlterHashRangeReq(SVnode *pVnode, int64_t version, vo
 }
 
 static int32_t vnodeProcessAlterConfigReq(SVnode *pVnode, int64_t version, void *pReq, int32_t len, SRpcMsg *pRsp) {
-  SAlterVnodeReq req = {0};
-  bool           walChanged = false;
-  bool           tsdbChanged = false;
+  bool walChanged = false;
+  bool tsdbChanged = false;
 
-  if (tDeserializeSAlterVnodeReq(pReq, len, &req) != 0) {
+  SAlterVnodeConfigReq req = {0};
+  if (tDeserializeSAlterVnodeConfigReq(pReq, len, &req) != 0) {
     terrno = TSDB_CODE_INVALID_MSG;
     return TSDB_CODE_INVALID_MSG;
   }
 
   vInfo("vgId:%d, start to alter vnode config, page:%d pageSize:%d buffer:%d szPage:%d szBuf:%" PRIu64
-        " cacheLast:%d cacheLastSize:%d days:%d keep0:%d keep1:%d keep2:%d fsync:%d level:%d strict:%d",
+        " cacheLast:%d cacheLastSize:%d days:%d keep0:%d keep1:%d keep2:%d fsync:%d level:%d",
         TD_VID(pVnode), req.pages, req.pageSize, req.buffer, req.pageSize * 1024, (uint64_t)req.buffer * 1024 * 1024,
         req.cacheLast, req.cacheLastSize, req.daysPerFile, req.daysToKeep0, req.daysToKeep1, req.daysToKeep2,
-        req.walFsyncPeriod, req.walLevel, req.strict);
+        req.walFsyncPeriod, req.walLevel);
 
   if (pVnode->config.cacheLastSize != req.cacheLastSize) {
     pVnode->config.cacheLastSize = req.cacheLastSize;
@@ -1087,18 +1089,18 @@ static int32_t vnodeProcessAlterConfigReq(SVnode *pVnode, int64_t version, void 
   }
 
   if (pVnode->config.szBuf != req.buffer * 1024LL * 1024LL) {
-    vInfo("vgId:%d vnode buffer is changed from %" PRId64 " to %" PRId64, TD_VID(pVnode), pVnode->config.szBuf,
-          req.buffer * 1024LL * 1024LL);
+    vInfo("vgId:%d, vnode buffer is changed from %" PRId64 " to %" PRId64, TD_VID(pVnode), pVnode->config.szBuf,
+          (uint64_t)(req.buffer * 1024LL * 1024LL));
     pVnode->config.szBuf = req.buffer * 1024LL * 1024LL;
   }
 
   if (pVnode->config.szCache != req.pages) {
     if (metaAlterCache(pVnode->pMeta, req.pages) < 0) {
-      vError("vgId:%d failed to change vnode pages from %d to %d failed since %s", TD_VID(pVnode),
+      vError("vgId:%d, failed to change vnode pages from %d to %d failed since %s", TD_VID(pVnode),
              pVnode->config.szCache, req.pages, tstrerror(errno));
       return errno;
     } else {
-      vInfo("vgId:%d vnode pages is changed from %d to %d", TD_VID(pVnode), pVnode->config.szCache, req.pages);
+      vInfo("vgId:%d, vnode pages is changed from %d to %d", TD_VID(pVnode), pVnode->config.szCache, req.pages);
       pVnode->config.szCache = req.pages;
     }
   }

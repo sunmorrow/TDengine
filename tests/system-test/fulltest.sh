@@ -2,7 +2,7 @@
 set -e
 set -x
 
-#python3 ./test.py -f 0-others/taosShell.py
+python3 ./test.py -f 0-others/taosShell.py
 python3 ./test.py -f 0-others/taosShellError.py
 python3 ./test.py -f 0-others/taosShellNetChk.py
 python3 ./test.py -f 0-others/telemetry.py
@@ -18,7 +18,7 @@ python3 ./test.py -f 0-others/sysinfo.py
 python3 ./test.py -f 0-others/user_control.py
 python3 ./test.py -f 0-others/fsync.py
 python3 ./test.py  -f 0-others/compatibility.py   
-
+python3 ./test.py -f 1-insert/alter_database.py
 python3 ./test.py -f 1-insert/influxdb_line_taosc_insert.py
 python3 ./test.py -f 1-insert/opentsdb_telnet_line_taosc_insert.py
 python3 ./test.py -f 1-insert/opentsdb_json_taosc_insert.py
@@ -127,7 +127,7 @@ python3 ./test.py -f 2-query/leastsquares.py -R
 python3 ./test.py -f 2-query/length.py
 python3 ./test.py -f 2-query/length.py -R
 python3 ./test.py -f 2-query/log.py
-# python3 ./test.py -f 2-query/log.py -R
+python3 ./test.py -f 2-query/log.py -R
 python3 ./test.py -f 2-query/lower.py
 python3 ./test.py -f 2-query/lower.py -R
 python3 ./test.py -f 2-query/ltrim.py
@@ -175,7 +175,7 @@ python3 ./test.py -f 2-query/sum.py -R
 python3 ./test.py -f 2-query/tail.py
 python3 ./test.py -f 2-query/tail.py -R
 python3 ./test.py -f 2-query/tan.py
-# python3 ./test.py -f 2-query/tan.py -R
+python3 ./test.py -f 2-query/tan.py -R
 python3 ./test.py -f 2-query/Timediff.py
 python3 ./test.py -f 2-query/Timediff.py -R
 python3 ./test.py -f 2-query/timetruncate.py
@@ -221,6 +221,7 @@ python3 ./test.py -f 2-query/json_tag.py
 # TD-15983 subquery output duplicate name column.
 # Please Xiangyang Guo modify the following script
 # python3 ./test.py -f 2-query/nestedQuery_str.py
+python3 ./test.py -f 2-query/stablity.py
 
 python3 ./test.py -f 2-query/elapsed.py
 python3 ./test.py -f 2-query/csum.py
@@ -279,7 +280,7 @@ python3 test.py -f 6-cluster/vnode/4dnode1mnode_basic_replica3_insertdatas_stop_
 python3 test.py -f 6-cluster/vnode/4dnode1mnode_basic_replica3_vgroups.py  -N 4 -M 1
 # python3 test.py -f 6-cluster/vnode/4dnode1mnode_basic_replica3_vgroups_stopOne.py -N 4 -M 1
 
-
+python3 ./test.py -f 7-tmq/create_wrong_topic.py
 python3 ./test.py -f 7-tmq/dropDbR3ConflictTransaction.py -N 3
 python3 ./test.py -f 7-tmq/basic5.py
 python3 ./test.py -f 7-tmq/subscribeDb.py
@@ -287,7 +288,7 @@ python3 ./test.py -f 7-tmq/subscribeDb0.py
 python3 ./test.py -f 7-tmq/subscribeDb1.py
 python3 ./test.py -f 7-tmq/subscribeDb2.py
 python3 ./test.py -f 7-tmq/subscribeDb3.py
-#python3 ./test.py -f 7-tmq/subscribeDb4.py
+python3 ./test.py -f 7-tmq/subscribeDb4.py
 python3 ./test.py -f 7-tmq/subscribeStb.py
 python3 ./test.py -f 7-tmq/subscribeStb0.py
 python3 ./test.py -f 7-tmq/subscribeStb1.py
@@ -302,14 +303,14 @@ python3 ./test.py -f 7-tmq/tmqCheckData.py
 python3 ./test.py -f 7-tmq/tmqCheckData1.py
 #python3 ./test.py -f 7-tmq/tmq3mnodeSwitch.py -N 5
 python3 ./test.py -f 7-tmq/tmqConsumerGroup.py
-#python3 ./test.py -f 7-tmq/tmqShow.py
+python3 ./test.py -f 7-tmq/tmqShow.py
 python3 ./test.py -f 7-tmq/tmqAlterSchema.py
 python3 ./test.py -f 7-tmq/tmqConsFromTsdb.py
 python3 ./test.py -f 7-tmq/tmqConsFromTsdb1.py
 python3 ./test.py -f 7-tmq/tmqConsFromTsdb-mutilVg.py
 python3 ./test.py -f 7-tmq/tmqConsFromTsdb1-mutilVg.py
 python3 ./test.py -f 7-tmq/tmqConsFromTsdb-1ctb.py
-# python3 ./test.py -f 7-tmq/tmqConsFromTsdb1-1ctb.py
+python3 ./test.py -f 7-tmq/tmqConsFromTsdb1-1ctb.py
 python3 ./test.py -f 7-tmq/tmqConsFromTsdb-1ctb-funcNFilter.py
 python3 ./test.py -f 7-tmq/tmqConsFromTsdb-mutilVg-mutilCtb-funcNFilter.py
 python3 ./test.py -f 7-tmq/tmqConsFromTsdb-mutilVg-mutilCtb.py

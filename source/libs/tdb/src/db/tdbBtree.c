@@ -371,7 +371,7 @@ static int tdbDefaultKeyCmprFn(const void *pKey1, int keyLen1, const void *pKey2
   }
   return cret;
 }
-
+/*
 static int tdbBtreeOpenImpl(SBTree *pBt) {
   // Try to get the root page of the an existing btree
   SPgno  pgno;
@@ -400,7 +400,7 @@ static int tdbBtreeOpenImpl(SBTree *pBt) {
   pBt->root = pgno;
   return 0;
 }
-
+*/
 int tdbBtreeInitPage(SPage *pPage, void *arg, int init) {
   SBTree *pBt;
   u8      flags;
@@ -1006,6 +1006,7 @@ static int tdbBtreeEncodePayload(SPage *pPage, SCell *pCell, int nHeader, const 
       nLeft -= kLen;
       // pack partial val to local if any space left
       if (nLocal > nHeader + kLen + sizeof(SPgno)) {
+        ASSERT(pVal != NULL && vLen != 0);
         memcpy(pCell + nHeader + kLen, pVal, nLocal - nHeader - kLen - sizeof(SPgno));
         nLeft -= nLocal - nHeader - kLen - sizeof(SPgno);
       }
@@ -1085,6 +1086,7 @@ static int tdbBtreeEncodePayload(SPage *pPage, SCell *pCell, int nHeader, const 
             // fetch next ofp, a new ofp and make it dirty
             ret = tdbFetchOvflPage(&pgno, &nextOfp, pTxn, pBt);
             if (ret < 0) {
+              tdbFree(pBuf);
               return -1;
             }
           }
@@ -1092,6 +1094,7 @@ static int tdbBtreeEncodePayload(SPage *pPage, SCell *pCell, int nHeader, const 
           // fetch next ofp, a new ofp and make it dirty
           ret = tdbFetchOvflPage(&pgno, &nextOfp, pTxn, pBt);
           if (ret < 0) {
+            tdbFree(pBuf);
             return -1;
           }
         }
@@ -1132,6 +1135,11 @@ static int tdbBtreeEncodePayload(SPage *pPage, SCell *pCell, int nHeader, const 
 
         memcpy(pBuf, ((SCell *)pVal) + vLen - nLeft, bytes);
         memcpy(pBuf + bytes, &pgno, sizeof(pgno));
+
+        if (ofp == NULL) {
+          tdbFree(pBuf);
+          return -1;
+        }
 
         ret = tdbPageInsertCell(ofp, 0, pBuf, bytes + sizeof(pgno), 0);
         if (ret < 0) {

@@ -62,7 +62,7 @@ static int32_t initGroupOptrInfo(SArray** pGroupColVals, int32_t* keyLen, char**
 
   int32_t numOfGroupCols = taosArrayGetSize(pGroupColList);
   for (int32_t i = 0; i < numOfGroupCols; ++i) {
-    SColumn* pCol = (SColumn*) taosArrayGet(pGroupColList, i);
+    SColumn* pCol = (SColumn*)taosArrayGet(pGroupColList, i);
     (*keyLen) += pCol->bytes;  // actual data + null_flag
 
     SGroupKeys key = {0};
@@ -397,7 +397,7 @@ static SSDataBlock* hashGroupbyAggregate(SOperatorInfo* pOperator) {
   return buildGroupResultDataBlock(pOperator);
 }
 
-SOperatorInfo* createGroupOperatorInfo(SOperatorInfo* downstream, SAggPhysiNode *pAggNode, SExecTaskInfo* pTaskInfo) {
+SOperatorInfo* createGroupOperatorInfo(SOperatorInfo* downstream, SAggPhysiNode* pAggNode, SExecTaskInfo* pTaskInfo) {
   SGroupbyOperatorInfo* pInfo = taosMemoryCalloc(1, sizeof(SGroupbyOperatorInfo));
   SOperatorInfo*        pOperator = taosMemoryCalloc(1, sizeof(SOperatorInfo));
   if (pInfo == NULL || pOperator == NULL) {
@@ -763,7 +763,6 @@ SOperatorInfo* createPartitionOperatorInfo(SOperatorInfo* downstream, SPartition
     goto _error;
   }
 
-
   int32_t    numOfCols = 0;
   SExprInfo* pExprInfo = createExprInfo(pPartNode->pTargets, NULL, &numOfCols);
   pInfo->pGroupCols = extractPartitionColInfo(pPartNode->pPartitionKeys);
@@ -1105,7 +1104,6 @@ _error:
   taosMemoryFreeClear(pOperator);
   return NULL;
 }
-
 
 SArray* extractColumnInfo(SNodeList* pNodeList) {
   size_t  numOfCols = LIST_LENGTH(pNodeList);

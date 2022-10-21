@@ -96,7 +96,7 @@ int32_t syncNodeElect(SSyncNode* pSyncNode) {
     syncNodeCandidate2Leader(pSyncNode);
     pSyncNode->pVotesGranted->toLeader = true;
     return ret;
-  } 
+  }
 
   if (pSyncNode->replicaNum == 1) {
     // only myself, to leader
@@ -108,7 +108,6 @@ int32_t syncNodeElect(SSyncNode* pSyncNode) {
     syncNodeCandidate2Leader(pSyncNode);
     pSyncNode->pVotesGranted->toLeader = true;
     return ret;
-
   }
 
   switch (pSyncNode->pRaftCfg->snapshotStrategy) {

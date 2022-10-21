@@ -29,7 +29,7 @@ typedef struct SCacheRowsReader {
   SArray*   pTableList;  // table id list
 } SCacheRowsReader;
 
-#define HASTYPE(_type, _t)  (((_type) & (_t)) == (_t))
+#define HASTYPE(_type, _t) (((_type) & (_t)) == (_t))
 
 static void saveOneRow(SArray* pRow, SSDataBlock* pBlock, SCacheRowsReader* pReader, const int32_t* slotIds,
                        void** pRes) {
@@ -56,7 +56,7 @@ static void saveOneRow(SArray* pRow, SSDataBlock* pBlock, SCacheRowsReader* pRea
           if (IS_VAR_DATA_TYPE(pColVal->colVal.type)) {
             varDataSetLen(p->buf, pColVal->colVal.value.nData);
             memcpy(varDataVal(p->buf), pColVal->colVal.value.pData, pColVal->colVal.value.nData);
-            p->bytes = pColVal->colVal.value.nData + VARSTR_HEADER_SIZE;   // binary needs to plus the header size
+            p->bytes = pColVal->colVal.value.nData + VARSTR_HEADER_SIZE;  // binary needs to plus the header size
           } else {
             memcpy(p->buf, &pColVal->colVal.value, pReader->pSchema->columns[slotId].bytes);
             p->bytes = pReader->pSchema->columns[slotId].bytes;
@@ -182,7 +182,7 @@ static int32_t doExtractCacheRow(SCacheRowsReader* pr, SLRUCache* lruCache, uint
 }
 
 static void freeItem(void* pItem) {
-  SLastCol* pCol = (SLastCol*) pItem;
+  SLastCol* pCol = (SLastCol*)pItem;
   if (IS_VAR_DATA_TYPE(pCol->colVal.type)) {
     taosMemoryFree(pCol->colVal.value.pData);
   }
@@ -223,7 +223,7 @@ int32_t tsdbRetrieveCacheRows(void* pReader, SSDataBlock* pResBlock, const int32
 
   for (int32_t i = 0; i < pr->pSchema->numOfCols; ++i) {
     struct STColumn* pCol = &pr->pSchema->columns[i];
-    SLastCol p = {.ts = INT64_MIN, .colVal.type = pCol->type};
+    SLastCol         p = {.ts = INT64_MIN, .colVal.type = pCol->type};
 
     if (IS_VAR_DATA_TYPE(pCol->type)) {
       p.colVal.value.pData = taosMemoryCalloc(pCol->bytes, sizeof(char));
@@ -299,7 +299,7 @@ int32_t tsdbRetrieveCacheRows(void* pReader, SSDataBlock* pResBlock, const int32
 
   } else if (HASTYPE(pr->type, CACHESCAN_RETRIEVE_TYPE_ALL)) {
     for (int32_t i = pr->tableIndex; i < numOfTables; ++i) {
-      STableKeyInfo* pKeyInfo = (STableKeyInfo*) taosArrayGet(pr->pTableList, i);
+      STableKeyInfo* pKeyInfo = (STableKeyInfo*)taosArrayGet(pr->pTableList, i);
       code = doExtractCacheRow(pr, lruCache, pKeyInfo->uid, &pRow, &h);
       if (code != TSDB_CODE_SUCCESS) {
         return code;
@@ -324,7 +324,7 @@ int32_t tsdbRetrieveCacheRows(void* pReader, SSDataBlock* pResBlock, const int32
     code = TSDB_CODE_INVALID_PARA;
   }
 
-  _end:
+_end:
   for (int32_t j = 0; j < pr->numOfCols; ++j) {
     taosMemoryFree(pRes[j]);
   }

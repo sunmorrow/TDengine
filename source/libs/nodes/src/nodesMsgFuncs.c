@@ -1969,7 +1969,12 @@ static int32_t msgToPhysiScanNode(STlvDecoder* pDecoder, void* pObj) {
   return code;
 }
 
-enum { PHY_LAST_ROW_SCAN_CODE_SCAN = 1, PHY_LAST_ROW_SCAN_CODE_GROUP_TAGS, PHY_LAST_ROW_SCAN_CODE_GROUP_SORT, PHY_LAST_ROW_SCAN_CODE_IGNULL };
+enum {
+  PHY_LAST_ROW_SCAN_CODE_SCAN = 1,
+  PHY_LAST_ROW_SCAN_CODE_GROUP_TAGS,
+  PHY_LAST_ROW_SCAN_CODE_GROUP_SORT,
+  PHY_LAST_ROW_SCAN_CODE_IGNULL
+};
 
 static int32_t physiLastRowScanNodeToMsg(const void* pObj, STlvEncoder* pEncoder) {
   const SLastRowScanPhysiNode* pNode = (const SLastRowScanPhysiNode*)pObj;

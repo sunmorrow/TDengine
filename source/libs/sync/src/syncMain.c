@@ -3124,7 +3124,7 @@ int32_t syncNodeCommit(SSyncNode* ths, SyncIndex beginIndex, SyncIndex endIndex,
           if (code != 0) {
             sError("vgId:%d, failed to get log entry since %s. index:%" PRId64 "", ths->vgId, tstrerror(terrno), i);
             return -1;
-           }
+          }
           ASSERT(pEntry != NULL);
         }
 

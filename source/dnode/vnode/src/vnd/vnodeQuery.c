@@ -290,7 +290,7 @@ int32_t vnodeGetBatchMeta(SVnode *pVnode, SRpcMsg *pMsg) {
       terrno = TSDB_CODE_MSG_NOT_PROCESSED;
       taosArrayDestroy(batchRsp);
       return -1;
-    }    
+    }
 
     req.msgIdx = ntohl(*(int32_t *)((char *)pMsg->pCont + offset));
     offset += sizeof(req.msgIdx);
@@ -300,7 +300,7 @@ int32_t vnodeGetBatchMeta(SVnode *pVnode, SRpcMsg *pMsg) {
       terrno = TSDB_CODE_MSG_NOT_PROCESSED;
       taosArrayDestroy(batchRsp);
       return -1;
-    } 
+    }
 
     req.msgType = ntohl(*(int32_t *)((char *)pMsg->pCont + offset));
     offset += sizeof(req.msgType);
@@ -310,7 +310,7 @@ int32_t vnodeGetBatchMeta(SVnode *pVnode, SRpcMsg *pMsg) {
       terrno = TSDB_CODE_MSG_NOT_PROCESSED;
       taosArrayDestroy(batchRsp);
       return -1;
-    } 
+    }
 
     req.msgLen = ntohl(*(int32_t *)((char *)pMsg->pCont + offset));
     offset += sizeof(req.msgLen);
@@ -320,7 +320,7 @@ int32_t vnodeGetBatchMeta(SVnode *pVnode, SRpcMsg *pMsg) {
       terrno = TSDB_CODE_MSG_NOT_PROCESSED;
       taosArrayDestroy(batchRsp);
       return -1;
-    } 
+    }
 
     req.msg = (char *)pMsg->pCont + offset;
     offset += req.msgLen;
@@ -362,7 +362,7 @@ int32_t vnodeGetBatchMeta(SVnode *pVnode, SRpcMsg *pMsg) {
     code = TSDB_CODE_INVALID_MSG_LEN;
     goto _exit;
   }
-  
+
   pRsp = rpcMallocCont(rspSize);
   if (pRsp == NULL) {
     code = TSDB_CODE_OUT_OF_MEMORY;

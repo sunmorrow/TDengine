@@ -124,7 +124,7 @@ static FORCE_INLINE int64_t walScanLogGetLastVer(SWal* pWal, int32_t fileIdx) {
       SWalCkHead* logContent = (SWalCkHead*)candidate;
       if (walValidHeadCksum(logContent) != 0) {
         wWarn("vgId:%d, failed to validate checksum of wal entry header. offset:%" PRId64 ", file:%s", pWal->cfg.vgId,
-               offset + ((char*)(logContent)-buf), fnameStr);
+              offset + ((char*)(logContent)-buf), fnameStr);
         haystack = candidate + 1;
         if (firstTrial) {
           break;
@@ -163,7 +163,7 @@ static FORCE_INLINE int64_t walScanLogGetLastVer(SWal* pWal, int32_t fileIdx) {
       if (walValidBodyCksum(logContent) != 0) {
         terrno = TSDB_CODE_WAL_CHKSUM_MISMATCH;
         wWarn("vgId:%d, failed to validate checksum of wal entry body. offset:%" PRId64 ", file:%s", pWal->cfg.vgId,
-               offset + ((char*)(logContent)-buf), fnameStr);
+              offset + ((char*)(logContent)-buf), fnameStr);
         haystack = candidate + 1;
         if (firstTrial) {
           break;

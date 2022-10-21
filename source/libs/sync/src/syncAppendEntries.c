@@ -580,7 +580,7 @@ int32_t syncNodeOnAppendEntriesSnapshot2Cb(SSyncNode* ths, SyncAppendEntriesBatc
             SSyncRaftEntry* pAppendEntry = (SSyncRaftEntry*)(pMsg->data + metaTableArr[i].offset);
             code = ths->pLogStore->syncLogAppendEntry(ths->pLogStore, pAppendEntry);
             if (code != 0) {
-              sError("vgId:%d, failed to append log entry since %s",  ths->vgId, tstrerror(terrno));
+              sError("vgId:%d, failed to append log entry since %s", ths->vgId, tstrerror(terrno));
               return -1;
             }
 
@@ -712,7 +712,7 @@ int32_t syncNodeOnAppendEntriesSnapshot2Cb(SSyncNode* ths, SyncAppendEntriesBatc
             SSyncRaftEntry* pAppendEntry = (SSyncRaftEntry*)(pMsg->data + metaTableArr[i].offset);
             code = ths->pLogStore->syncLogAppendEntry(ths->pLogStore, pAppendEntry);
             if (code != 0) {
-              sError("vgId:%d, failed to append log entry since %s",  ths->vgId, tstrerror(terrno));
+              sError("vgId:%d, failed to append log entry since %s", ths->vgId, tstrerror(terrno));
               return -1;
             }
 
@@ -862,7 +862,7 @@ int32_t syncNodeOnAppendEntriesSnapshotCb(SSyncNode* ths, SyncAppendEntries* pMs
 
         code = ths->pLogStore->syncLogAppendEntry(ths->pLogStore, pAppendEntry);
         if (code != 0) {
-          sError("vgId:%d, failed to append log entry since %s",  ths->vgId, tstrerror(terrno));
+          sError("vgId:%d, failed to append log entry since %s", ths->vgId, tstrerror(terrno));
           return -1;
         }
 
@@ -978,7 +978,7 @@ int32_t syncNodeOnAppendEntriesSnapshotCb(SSyncNode* ths, SyncAppendEntries* pMs
 
         code = ths->pLogStore->syncLogAppendEntry(ths->pLogStore, pAppendEntry);
         if (code != 0) {
-          sError("vgId:%d, failed to append log entry since %s",  ths->vgId, tstrerror(terrno));
+          sError("vgId:%d, failed to append log entry since %s", ths->vgId, tstrerror(terrno));
           return -1;
         }
 

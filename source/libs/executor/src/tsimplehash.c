@@ -15,8 +15,8 @@
 
 #include "tsimplehash.h"
 #include "taoserror.h"
-#include "tlog.h"
 #include "tdef.h"
+#include "tlog.h"
 
 #define SHASH_DEFAULT_LOAD_FACTOR 0.75
 #define HASH_MAX_CAPACITY         (1024 * 1024 * 16L)

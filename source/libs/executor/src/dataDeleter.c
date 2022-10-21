@@ -158,7 +158,7 @@ static int32_t putDataBlock(SDataSinkHandle* pHandle, const SInputData* pInput, 
     taosFreeQitem(pBuf);
     return TSDB_CODE_QRY_OUT_OF_MEMORY;
   }
-  
+
   toDataCacheEntry(pDeleter, pInput, pBuf);
   taosWriteQitem(pDeleter->pDataBlocks, pBuf);
   *pContinue = (DS_BUF_LOW == updateStatus(pDeleter) ? true : false);

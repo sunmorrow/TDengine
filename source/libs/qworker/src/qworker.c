@@ -8,9 +8,9 @@
 #include "qwMsg.h"
 #include "tcommon.h"
 #include "tdatablock.h"
+#include "tglobal.h"
 #include "tmsg.h"
 #include "tname.h"
-#include "tglobal.h"
 
 SQWorkerMgmt gQwMgmt = {
     .lock = 0,
@@ -533,7 +533,7 @@ _return:
     SQWMsg qwMsg = {.msgType = ctx->msgType, .connInfo = ctx->ctrlConnInfo};
     qwDbgSimulateRedirect(&qwMsg, ctx, &rsped);
     qwDbgSimulateDead(QW_FPARAMS(), ctx, &rsped);
-    if (!rsped) {      
+    if (!rsped) {
       qwSendQueryRsp(QW_FPARAMS(), input->msgType + 1, ctx, code, false);
     }
   }
@@ -645,8 +645,8 @@ _return:
   code = qwHandlePostPhaseEvents(QW_FPARAMS(), QW_PHASE_POST_QUERY, &input, NULL);
 
   if (ctx != NULL && QW_EVENT_RECEIVED(ctx, QW_EVENT_FETCH)) {
-    void         *rsp = NULL;
-    int32_t       dataLen = 0;
+    void       *rsp = NULL;
+    int32_t     dataLen = 0;
     SOutputData sOutput = {0};
     QW_ERR_JRET(qwGetQueryResFromSink(QW_FPARAMS(), ctx, &dataLen, &rsp, &sOutput));
 
@@ -664,8 +664,8 @@ _return:
       qwBuildAndSendFetchRsp(ctx->fetchType, &qwMsg->connInfo, rsp, dataLen, code);
       rsp = NULL;
 
-      QW_TASK_DLOG("fetch rsp send, handle:%p, code:%x - %s, dataLen:%d", qwMsg->connInfo.handle, code,
-                   tstrerror(code), dataLen);
+      QW_TASK_DLOG("fetch rsp send, handle:%p, code:%x - %s, dataLen:%d", qwMsg->connInfo.handle, code, tstrerror(code),
+                   dataLen);
     }
   }
 

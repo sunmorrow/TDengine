@@ -27,7 +27,7 @@ static void  taosDumpSchedulerStatus(void *qhandle, void *tmrId);
 
 void *taosInitScheduler(int32_t queueSize, int32_t numOfThreads, const char *label, SSchedQueue *pSched) {
   bool schedMalloced = false;
-  
+
   if (NULL == pSched) {
     pSched = (SSchedQueue *)taosMemoryCalloc(sizeof(SSchedQueue), 1);
     if (pSched == NULL) {

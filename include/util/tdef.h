@@ -234,9 +234,9 @@ typedef enum ELogicConditionType {
  *  - Secondly, if all cols are VarDataT type except primary key, we need 4 bits to store the offset, thus
  *    the final value is 65531-(4096-1)*4 = 49151.
  */
-#define TSDB_MAX_BYTES_PER_ROW  49151
-#define TSDB_MAX_TAGS_LEN       16384
-#define TSDB_MAX_TAGS           128
+#define TSDB_MAX_BYTES_PER_ROW 49151
+#define TSDB_MAX_TAGS_LEN      16384
+#define TSDB_MAX_TAGS          128
 
 #define TSDB_MAX_COL_TAG_NUM  (TSDB_MAX_COLUMNS + TSDB_MAX_TAGS)
 #define TSDB_MAX_JSON_TAG_LEN 16384
@@ -409,7 +409,7 @@ typedef enum ELogicConditionType {
 #define TSDB_MAX_RPC_THREADS 10
 #endif
 
-#define TSDB_QUERY_TYPE_NON_TYPE      0x00u  // none type
+#define TSDB_QUERY_TYPE_NON_TYPE 0x00u  // none type
 
 #define TSDB_META_COMPACT_RATIO 0  // disable tsdb meta compact by default
 
@@ -486,7 +486,7 @@ enum {
 
 #define MAX_NUM_STR_SIZE 40
 
-#define MAX_META_MSG_IN_BATCH 1048576
+#define MAX_META_MSG_IN_BATCH   1048576
 #define MAX_META_BATCH_RSP_SIZE (1 * 1048576 * 1024)
 
 #ifdef __cplusplus

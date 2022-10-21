@@ -470,13 +470,13 @@ SSyncRaftEntry* logStoreGetEntryWithoutLock(SSyncLogStore* pLogStore, SyncIndex 
 }
 
 SSyncRaftEntry* logStoreGetEntry(SSyncLogStore* pLogStore, SyncIndex index) {
-    SSyncLogStoreData* pData = pLogStore->data;
-    SSyncRaftEntry *pEntry = NULL;
+  SSyncLogStoreData* pData = pLogStore->data;
+  SSyncRaftEntry*    pEntry = NULL;
 
-    taosThreadMutexLock(&pData->mutex);
-    pEntry = logStoreGetEntryWithoutLock(pLogStore, index);
-    taosThreadMutexUnlock(&pData->mutex);
-    return pEntry;
+  taosThreadMutexLock(&pData->mutex);
+  pEntry = logStoreGetEntryWithoutLock(pLogStore, index);
+  taosThreadMutexUnlock(&pData->mutex);
+  return pEntry;
 }
 
 int32_t logStoreTruncate(SSyncLogStore* pLogStore, SyncIndex fromIndex) {

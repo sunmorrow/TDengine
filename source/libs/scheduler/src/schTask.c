@@ -914,7 +914,7 @@ int32_t schLaunchRemoteTask(SSchJob *pJob, SSchTask *pTask) {
   SCH_ERR_RET(schSetTaskCandidateAddrs(pJob, pTask));
 
   if (SCH_IS_QUERY_JOB(pJob)) {
-//    SCH_ERR_RET(schEnsureHbConnection(pJob, pTask));
+    //    SCH_ERR_RET(schEnsureHbConnection(pJob, pTask));
   }
 
   SCH_RET(schBuildAndSendMsg(pJob, pTask, NULL, plan->msgType));
@@ -941,7 +941,7 @@ int32_t schLaunchLocalTask(SSchJob *pJob, SSchTask *pTask) {
   }
 
   SCH_ERR_JRET(qWorkerProcessLocalQuery(schMgmt.queryMgmt, schMgmt.sId, pJob->queryId, pTask->taskId, pJob->refId,
-                                       pTask->execId, &qwMsg, explainRes));
+                                        pTask->execId, &qwMsg, explainRes));
 
   if (SCH_IS_EXPLAIN_JOB(pJob)) {
     SCH_ERR_RET(schHandleExplainRes(explainRes));
@@ -1114,7 +1114,7 @@ int32_t schExecLocalFetch(SSchJob *pJob, SSchTask *pTask) {
   }
 
   SCH_ERR_JRET(qWorkerProcessLocalFetch(schMgmt.queryMgmt, schMgmt.sId, pJob->queryId, pTask->taskId, pJob->refId,
-                                       pTask->execId, &pRsp, explainRes));
+                                        pTask->execId, &pRsp, explainRes));
 
   if (SCH_IS_EXPLAIN_JOB(pJob)) {
     SCH_ERR_RET(schHandleExplainRes(explainRes));

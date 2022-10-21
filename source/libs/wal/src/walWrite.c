@@ -409,7 +409,7 @@ END:
 }
 
 static int32_t walWriteIndex(SWal *pWal, int64_t ver, int64_t offset) {
-  SWalIdxEntry entry = {.ver = ver, .offset = offset};
+  SWalIdxEntry  entry = {.ver = ver, .offset = offset};
   SWalFileInfo *pFileInfo = walGetCurFileInfo(pWal);
   ASSERT(pFileInfo != NULL);
   ASSERT(pFileInfo->firstVer >= 0);
@@ -429,7 +429,7 @@ static int32_t walWriteIndex(SWal *pWal, int64_t ver, int64_t offset) {
   if (endOffset < 0) {
     wFatal("vgId:%d, failed to seek end of idxfile due to %s. ver:%" PRId64 "", pWal->cfg.vgId, strerror(errno), ver);
   }
-  ASSERT(endOffset  == idxOffset + sizeof(SWalIdxEntry) && "Offset of idx entries misaligned");
+  ASSERT(endOffset == idxOffset + sizeof(SWalIdxEntry) && "Offset of idx entries misaligned");
   return 0;
 }
 
@@ -437,7 +437,7 @@ static FORCE_INLINE int32_t walWriteImpl(SWal *pWal, int64_t index, tmsg_t msgTy
                                          const void *body, int32_t bodyLen) {
   int64_t code = 0;
 
-  int64_t offset = walGetCurFileOffset(pWal);
+  int64_t       offset = walGetCurFileOffset(pWal);
   SWalFileInfo *pFileInfo = walGetCurFileInfo(pWal);
   ASSERT(pFileInfo != NULL);
 

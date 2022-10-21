@@ -32,7 +32,7 @@ int32_t ctgGetDBVgInfo(SCatalog* pCtg, SRequestConnInfo* pConn, const char* dbFN
     if (exists) {
       *exists = true;
     }
-    
+
     return TSDB_CODE_SUCCESS;
   }
 
@@ -194,7 +194,7 @@ _return:
     taosMemoryFreeClear(output->tbMeta);
     taosMemoryFreeClear(output);
   }
-  
+
   CTG_RET(code);
 }
 
@@ -315,7 +315,7 @@ _return:
     taosMemoryFreeClear(output->tbMeta);
     taosMemoryFreeClear(output);
   }
-  
+
   CTG_RET(code);
 }
 
@@ -510,7 +510,8 @@ _return:
   CTG_RET(code);
 }
 
-int32_t ctgGetTbHashVgroup(SCatalog* pCtg, SRequestConnInfo* pConn, const SName* pTableName, SVgroupInfo* pVgroup, bool* exists) {
+int32_t ctgGetTbHashVgroup(SCatalog* pCtg, SRequestConnInfo* pConn, const SName* pTableName, SVgroupInfo* pVgroup,
+                           bool* exists) {
   if (IS_SYS_DBNAME(pTableName->dbname)) {
     ctgError("no valid vgInfo for db, dbname:%s", pTableName->dbname);
     CTG_ERR_RET(TSDB_CODE_CTG_INVALID_INPUT);
@@ -528,7 +529,7 @@ int32_t ctgGetTbHashVgroup(SCatalog* pCtg, SRequestConnInfo* pConn, const SName*
     ctgDebug("db %s vgInfo not in cache", pTableName->dbname);
     return TSDB_CODE_SUCCESS;
   }
-  
+
   CTG_ERR_JRET(ctgGetVgInfoFromHashValue(pCtg, vgInfo ? vgInfo : dbCache->vgCache.vgInfo, pTableName, pVgroup));
 
 _return:
@@ -808,16 +809,16 @@ int32_t catalogGetDBVgInfo(SCatalog* pCtg, SRequestConnInfo* pConn, const char* 
     CTG_ERR_JRET(TSDB_CODE_OUT_OF_MEMORY);
   }
 
-  SVgroupInfo* vgInfo = NULL;  
-  int32_t i = 0;
-  void* pIter = taosHashIterate(dbInfo->vgHash, NULL);
+  SVgroupInfo* vgInfo = NULL;
+  int32_t      i = 0;
+  void*        pIter = taosHashIterate(dbInfo->vgHash, NULL);
   while (pIter) {
     vgInfo = pIter;
 
     pInfo->vgHash[i].vgId = vgInfo->vgId;
     pInfo->vgHash[i].hashBegin = vgInfo->hashBegin;
     pInfo->vgHash[i].hashEnd = vgInfo->hashEnd;
-    
+
     pIter = taosHashIterate(dbInfo->vgHash, pIter);
     vgInfo = NULL;
     ++i;
@@ -952,7 +953,8 @@ int32_t catalogGetTableMeta(SCatalog* pCtg, SRequestConnInfo* pConn, const SName
   CTG_API_LEAVE(ctgGetTbMeta(pCtg, pConn, &ctx, pTableMeta));
 }
 
-int32_t catalogGetCachedTableMeta(SCatalog* pCtg, SRequestConnInfo* pConn, const SName* pTableName, STableMeta** pTableMeta) {
+int32_t catalogGetCachedTableMeta(SCatalog* pCtg, SRequestConnInfo* pConn, const SName* pTableName,
+                                  STableMeta** pTableMeta) {
   CTG_API_ENTER();
 
   SCtgTbMetaCtx ctx = {0};
@@ -961,7 +963,6 @@ int32_t catalogGetCachedTableMeta(SCatalog* pCtg, SRequestConnInfo* pConn, const
 
   CTG_API_LEAVE(ctgGetTbMeta(pCtg, pConn, &ctx, pTableMeta));
 }
-
 
 int32_t catalogGetSTableMeta(SCatalog* pCtg, SRequestConnInfo* pConn, const SName* pTableName,
                              STableMeta** pTableMeta) {
@@ -975,7 +976,7 @@ int32_t catalogGetSTableMeta(SCatalog* pCtg, SRequestConnInfo* pConn, const SNam
 }
 
 int32_t catalogGetCachedSTableMeta(SCatalog* pCtg, SRequestConnInfo* pConn, const SName* pTableName,
-                            STableMeta** pTableMeta) {
+                                   STableMeta** pTableMeta) {
   CTG_API_ENTER();
 
   SCtgTbMetaCtx ctx = {0};
@@ -984,7 +985,6 @@ int32_t catalogGetCachedSTableMeta(SCatalog* pCtg, SRequestConnInfo* pConn, cons
 
   CTG_API_LEAVE(ctgGetTbMeta(pCtg, pConn, &ctx, pTableMeta));
 }
-
 
 int32_t catalogUpdateTableMeta(SCatalog* pCtg, STableMetaRsp* pMsg) {
   CTG_API_ENTER();
@@ -1108,7 +1108,7 @@ int32_t catalogGetTableHashVgroup(SCatalog* pCtg, SRequestConnInfo* pConn, const
 }
 
 int32_t catalogGetCachedTableHashVgroup(SCatalog* pCtg, SRequestConnInfo* pConn, const SName* pTableName,
-                                  SVgroupInfo* pVgroup, bool* exists) {
+                                        SVgroupInfo* pVgroup, bool* exists) {
   CTG_API_ENTER();
 
   CTG_API_LEAVE(ctgGetTbHashVgroup(pCtg, pConn, pTableName, pVgroup, exists));

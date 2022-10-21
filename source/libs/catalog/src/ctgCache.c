@@ -1422,7 +1422,7 @@ int32_t ctgWriteTbMetaToCache(SCatalog *pCtg, SCtgDBCache *dbCache, char *dbFNam
   if (pCache) {
     CTG_ERR_RET(ctgUpdateRentStbVersion(pCtg, dbFName, tbName, dbId, meta->suid, pCache));
   }
-  
+
   return TSDB_CODE_SUCCESS;
 }
 

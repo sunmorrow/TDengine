@@ -47,7 +47,7 @@ void taosVariantAssign(SVariant *pDst, const SVariant *pSrc);
 
 int32_t taosVariantCompare(const SVariant *p1, const SVariant *p2);
 
-char   *taosVariantGet(SVariant *pVar, int32_t type);
+char *taosVariantGet(SVariant *pVar, int32_t type);
 
 #ifdef __cplusplus
 }

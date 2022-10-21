@@ -194,7 +194,7 @@ int32_t processUseDbRsp(void* param, SDataBuf* pMsg, int32_t code) {
   SUseDbRsp usedbRsp = {0};
   tDeserializeSUseDbRsp(pMsg->pData, pMsg->len, &usedbRsp);
 
-  if(strlen(usedbRsp.db) == 0){
+  if (strlen(usedbRsp.db) == 0) {
     return TSDB_CODE_MND_DB_NOT_EXIST;
   }
 
@@ -292,7 +292,7 @@ int32_t processDropDbRsp(void* param, SDataBuf* pMsg, int32_t code) {
     tDeserializeSDropDbRsp(pMsg->pData, pMsg->len, &dropdbRsp);
 
     struct SCatalog* pCatalog = NULL;
-    int32_t code = catalogGetHandle(pRequest->pTscObj->pAppInfo->clusterId, &pCatalog);
+    int32_t          code = catalogGetHandle(pRequest->pTscObj->pAppInfo->clusterId, &pCatalog);
     if (TSDB_CODE_SUCCESS == code) {
       catalogRemoveDB(pCatalog, dropdbRsp.db, dropdbRsp.uid);
     }

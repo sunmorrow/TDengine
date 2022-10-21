@@ -201,10 +201,10 @@ int32_t stmtCacheBlock(STscStmt* pStmt) {
   }
 
   STableDataBlocks** pSrc = taosHashGet(pStmt->exec.pBlockHash, pStmt->bInfo.tbFName, strlen(pStmt->bInfo.tbFName));
-  if(!pSrc){
+  if (!pSrc) {
     return TSDB_CODE_OUT_OF_MEMORY;
   }
-  STableDataBlocks*  pDst = NULL;
+  STableDataBlocks* pDst = NULL;
 
   STMT_ERR_RET(qCloneStmtDataBlock(&pDst, *pSrc));
 

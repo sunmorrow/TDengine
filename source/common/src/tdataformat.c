@@ -1032,7 +1032,7 @@ char *tTagValToData(const STagVal *value, bool isJson) {
 }
 
 bool tTagGet(const STag *pTag, STagVal *pTagVal) {
-  if(!pTag || !pTagVal){
+  if (!pTag || !pTagVal) {
     return false;
   }
 

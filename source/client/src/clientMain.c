@@ -989,7 +989,7 @@ const void *taos_get_raw_block(TAOS_RES *res) {
   return pRequest->body.resInfo.pData;
 }
 
-int taos_get_db_route_info(TAOS* taos, const char* db, TAOS_DB_ROUTE_INFO* dbInfo) {
+int taos_get_db_route_info(TAOS *taos, const char *db, TAOS_DB_ROUTE_INFO *dbInfo) {
   if (NULL == taos) {
     terrno = TSDB_CODE_TSC_DISCONNECTED;
     return terrno;
@@ -1001,16 +1001,16 @@ int taos_get_db_route_info(TAOS* taos, const char* db, TAOS_DB_ROUTE_INFO* dbInf
     return terrno;
   }
 
-  int64_t       connId = *(int64_t *)taos;
-  SRequestObj  *pRequest = NULL;
-  char *sql = "taos_get_db_route_info";
-  int32_t code = buildRequest(connId, sql, strlen(sql), NULL, false, &pRequest);
+  int64_t      connId = *(int64_t *)taos;
+  SRequestObj *pRequest = NULL;
+  char        *sql = "taos_get_db_route_info";
+  int32_t      code = buildRequest(connId, sql, strlen(sql), NULL, false, &pRequest);
   if (code != TSDB_CODE_SUCCESS) {
     terrno = code;
     return terrno;
   }
 
-  STscObj *pTscObj = pRequest->pTscObj;
+  STscObj  *pTscObj = pRequest->pTscObj;
   SCatalog *pCtg = NULL;
   code = catalogGetHandle(pTscObj->pAppInfo->clusterId, &pCtg);
   if (code != TSDB_CODE_SUCCESS) {
@@ -1024,7 +1024,7 @@ int taos_get_db_route_info(TAOS* taos, const char* db, TAOS_DB_ROUTE_INFO* dbInf
 
   char dbFName[TSDB_DB_FNAME_LEN] = {0};
   snprintf(dbFName, sizeof(dbFName), "%d.%s", pTscObj->acctId, db);
-  
+
   code = catalogGetDBVgInfo(pCtg, &conn, dbFName, dbInfo);
   if (code) {
     goto _return;
@@ -1038,7 +1038,7 @@ _return:
   return code;
 }
 
-int taos_get_table_vgId(TAOS* taos, const char* db, const char* table, int* vgId) {
+int taos_get_table_vgId(TAOS *taos, const char *db, const char *table, int *vgId) {
   if (NULL == taos) {
     terrno = TSDB_CODE_TSC_DISCONNECTED;
     return terrno;
@@ -1050,15 +1050,15 @@ int taos_get_table_vgId(TAOS* taos, const char* db, const char* table, int* vgId
     return terrno;
   }
 
-  int64_t       connId = *(int64_t *)taos;
-  SRequestObj  *pRequest = NULL;
-  char *sql = "taos_get_table_vgId";
-  int32_t code = buildRequest(connId, sql, strlen(sql), NULL, false, &pRequest);
+  int64_t      connId = *(int64_t *)taos;
+  SRequestObj *pRequest = NULL;
+  char        *sql = "taos_get_table_vgId";
+  int32_t      code = buildRequest(connId, sql, strlen(sql), NULL, false, &pRequest);
   if (code != TSDB_CODE_SUCCESS) {
     return terrno;
   }
 
-  STscObj *pTscObj = pRequest->pTscObj;
+  STscObj  *pTscObj = pRequest->pTscObj;
   SCatalog *pCtg = NULL;
   code = catalogGetHandle(pTscObj->pAppInfo->clusterId, &pCtg);
   if (code != TSDB_CODE_SUCCESS) {

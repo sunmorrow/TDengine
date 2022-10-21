@@ -410,7 +410,7 @@ static char* processAlterTable(SMqMetaRsp* metaRsp) {
   SDecoder     decoder = {0};
   SVAlterTbReq vAlterTbReq = {0};
   char*        string = NULL;
-  cJSON*       json   = NULL;
+  cJSON*       json = NULL;
 
   // decode
   void*   data = POINTER_SHIFT(metaRsp->metaRsp, sizeof(SMsgHead));
@@ -525,7 +525,7 @@ static char* processDropSTable(SMqMetaRsp* metaRsp) {
   SDecoder     decoder = {0};
   SVDropStbReq req = {0};
   char*        string = NULL;
-  cJSON*       json   = NULL;
+  cJSON*       json = NULL;
 
   // decode
   void*   data = POINTER_SHIFT(metaRsp->metaRsp, sizeof(SMsgHead));
@@ -558,7 +558,7 @@ static char* processDropTable(SMqMetaRsp* metaRsp) {
   SDecoder         decoder = {0};
   SVDropTbBatchReq req = {0};
   char*            string = NULL;
-  cJSON*           json   = NULL;
+  cJSON*           json = NULL;
 
   // decode
   void*   data = POINTER_SHIFT(metaRsp->metaRsp, sizeof(SMsgHead));
@@ -1281,7 +1281,7 @@ int taos_write_raw_block(TAOS* taos, int rows, char* pData, const char* tbname) 
   int32_t schemaLen = 0;
   int32_t submitLen = sizeof(SSubmitBlk) + schemaLen + rows * extendedRowSize;
 
-  int32_t     totalLen = sizeof(SSubmitReq) + submitLen;
+  int32_t totalLen = sizeof(SSubmitReq) + submitLen;
   subReq = taosMemoryCalloc(1, totalLen);
   SSubmitBlk* blk = POINTER_SHIFT(subReq, sizeof(SSubmitReq));
   void*       blkSchema = POINTER_SHIFT(blk, sizeof(SSubmitBlk));

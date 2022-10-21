@@ -340,7 +340,7 @@ typedef struct SUdfcProxy {
   SArray    *udfStubs;  // SUdfcFuncStub
 
   uv_mutex_t udfcUvMutex;
-  int8_t initialized;
+  int8_t     initialized;
 } SUdfcProxy;
 
 SUdfcProxy gUdfcProxy = {0};

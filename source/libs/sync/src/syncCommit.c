@@ -131,7 +131,7 @@ void syncMaybeAdvanceCommitIndex(SSyncNode* pSyncNode) {
     if (pSyncNode->pFsm != NULL) {
       int32_t code = syncNodeCommit(pSyncNode, beginIndex, endIndex, pSyncNode->state);
       if (code != 0) {
-         wError("failed to commit sync node since %s", tstrerror(terrno));
+        wError("failed to commit sync node since %s", tstrerror(terrno));
       }
     }
   }

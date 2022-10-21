@@ -1052,7 +1052,7 @@ static int32_t doSetCurrentBlock(SDataBlockIter* pBlockIter, const char* idStr) 
   if (pBlockInfo != NULL) {
     STableBlockScanInfo* pScanInfo = taosHashGet(pBlockIter->pTableMap, &pBlockInfo->uid, sizeof(pBlockInfo->uid));
     if (pScanInfo == NULL) {
-      tsdbError("failed to locate the uid:%"PRIu64" in query table uid list, %s", pBlockInfo->uid, idStr);
+      tsdbError("failed to locate the uid:%" PRIu64 " in query table uid list, %s", pBlockInfo->uid, idStr);
       return TSDB_CODE_INVALID_PARA;
     }
 
@@ -1897,8 +1897,8 @@ static int32_t doMergeMultiLevelRows(STsdbReader* pReader, STableBlockScanInfo* 
         }
       }
 
-      code = doMergeRowsInBuf(&pBlockScanInfo->iiter, pBlockScanInfo->uid, ik.ts, pBlockScanInfo->delSkyline,
-                                      &merge, pReader);
+      code = doMergeRowsInBuf(&pBlockScanInfo->iiter, pBlockScanInfo->uid, ik.ts, pBlockScanInfo->delSkyline, &merge,
+                              pReader);
       if (code != TSDB_CODE_SUCCESS) {
         return code;
       }
@@ -2209,8 +2209,8 @@ static int32_t buildComposedDataBlock(STsdbReader* pReader) {
     pBlockScanInfo = taosHashGet(pReader->status.pTableMap, &pBlockInfo->uid, sizeof(pBlockInfo->uid));
     if (pBlockScanInfo == NULL) {
       code = TSDB_CODE_INVALID_PARA;
-      tsdbError("failed to locate the uid:%"PRIu64" in query table uid list, total tables:%d, %s",
-          pBlockInfo->uid, taosHashGetSize(pReader->status.pTableMap), pReader->idStr);
+      tsdbError("failed to locate the uid:%" PRIu64 " in query table uid list, total tables:%d, %s", pBlockInfo->uid,
+                taosHashGetSize(pReader->status.pTableMap), pReader->idStr);
       goto _end;
     }
 

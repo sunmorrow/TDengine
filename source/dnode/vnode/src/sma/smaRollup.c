@@ -15,11 +15,11 @@
 
 #include "sma.h"
 
-#define RSMA_QTASKEXEC_SMOOTH_SIZE (100)                                                 // cnt
-#define RSMA_SUBMIT_BATCH_SIZE     (1024)                                                // cnt
-#define RSMA_FETCH_DELAY_MAX       (120000)                                              // ms
-#define RSMA_FETCH_ACTIVE_MAX      (1000)                                                // ms
-#define RSMA_FETCH_INTERVAL        (5000)                                                // ms
+#define RSMA_QTASKEXEC_SMOOTH_SIZE (100)     // cnt
+#define RSMA_SUBMIT_BATCH_SIZE     (1024)    // cnt
+#define RSMA_FETCH_DELAY_MAX       (120000)  // ms
+#define RSMA_FETCH_ACTIVE_MAX      (1000)    // ms
+#define RSMA_FETCH_INTERVAL        (5000)    // ms
 
 SSmaMgmt smaMgmt = {
     .inited = 0,

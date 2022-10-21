@@ -1233,20 +1233,20 @@ int32_t tSerializeSCompactVnodeReq(void* buf, int32_t bufLen, SCompactVnodeReq* 
 int32_t tDeserializeSCompactVnodeReq(void* buf, int32_t bufLen, SCompactVnodeReq* pReq);
 
 typedef struct {
-  int32_t  vgVersion;
-  int32_t  buffer;
-  int32_t  pageSize;
-  int32_t  pages;
-  int32_t  cacheLastSize;
-  int32_t  daysPerFile;
-  int32_t  daysToKeep0;
-  int32_t  daysToKeep1;
-  int32_t  daysToKeep2;
-  int32_t  walFsyncPeriod;
-  int8_t   walLevel;
-  int8_t   strict;
-  int8_t   cacheLast;
-  int64_t  reserved[8];
+  int32_t vgVersion;
+  int32_t buffer;
+  int32_t pageSize;
+  int32_t pages;
+  int32_t cacheLastSize;
+  int32_t daysPerFile;
+  int32_t daysToKeep0;
+  int32_t daysToKeep1;
+  int32_t daysToKeep2;
+  int32_t walFsyncPeriod;
+  int8_t  walLevel;
+  int8_t  strict;
+  int8_t  cacheLast;
+  int64_t reserved[8];
 } SAlterVnodeConfigReq;
 
 int32_t tSerializeSAlterVnodeConfigReq(void* buf, int32_t bufLen, SAlterVnodeConfigReq* pReq);

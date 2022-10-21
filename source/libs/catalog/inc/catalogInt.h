@@ -784,7 +784,8 @@ void    ctgFreeQNode(SCtgQNode* node);
 void    ctgClearHandle(SCatalog* pCtg);
 void    ctgFreeTbCacheImpl(SCtgTbCache* pCache);
 int32_t ctgRemoveTbMeta(SCatalog* pCtg, SName* pTableName);
-int32_t ctgGetTbHashVgroup(SCatalog* pCtg, SRequestConnInfo* pConn, const SName* pTableName, SVgroupInfo* pVgroup, bool* exists);
+int32_t ctgGetTbHashVgroup(SCatalog* pCtg, SRequestConnInfo* pConn, const SName* pTableName, SVgroupInfo* pVgroup,
+                           bool* exists);
 SName*  ctgGetFetchName(SArray* pNames, SCtgFetch* pFetch);
 
 extern SCatalogMgmt gCtgMgmt;

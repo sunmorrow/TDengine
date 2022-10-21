@@ -13,13 +13,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "ctgRemote.h"
 #include "catalogInt.h"
 #include "query.h"
 #include "systable.h"
 #include "tname.h"
 #include "tref.h"
 #include "trpc.h"
-#include "ctgRemote.h"
 
 int32_t ctgHandleBatchRsp(SCtgJob* pJob, SCtgTaskCallbackParam* cbParam, SDataBuf* pMsg, int32_t rspCode) {
   int32_t   code = 0;

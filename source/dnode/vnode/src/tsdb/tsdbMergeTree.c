@@ -551,9 +551,9 @@ int32_t tMergeTreeOpen(SMergeTree *pMTree, int8_t backward, SDataFReader *pFRead
   }
 
   pMTree->idStr = idStr;
-  if (!pMTree->backward) { // asc
+  if (!pMTree->backward) {  // asc
     tRBTreeCreate(&pMTree->rbt, tLDataIterCmprFn);
-  } else { // desc
+  } else {  // desc
     tRBTreeCreate(&pMTree->rbt, tLDataIterDescCmprFn);
   }
   int32_t code = TSDB_CODE_SUCCESS;

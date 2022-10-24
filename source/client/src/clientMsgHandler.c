@@ -46,38 +46,38 @@ int32_t genericRspCallback(void* param, SDataBuf* pMsg, int32_t code) {
 
 int32_t processConnectRsp(void* param, SDataBuf* pMsg, int32_t code) {
   SRequestObj* pRequest = param;
+
   if (code != TSDB_CODE_SUCCESS) {
-    taosMemoryFree(pMsg->pEpSet);
-    taosMemoryFree(pMsg->pData);
     setErrno(pRequest, code);
     tsem_post(&pRequest->body.rspSem);
-    return code;
+    goto End;
   }
 
   STscObj* pTscObj = pRequest->pTscObj;
 
   SConnectRsp connectRsp = {0};
-  tDeserializeSConnectRsp(pMsg->pData, pMsg->len, &connectRsp);
+  if (tDeserializeSConnectRsp(pMsg->pData, pMsg->len, &connectRsp) != 0) {
+    code = TSDB_CODE_TSC_INVALID_VERSION;
+    setErrno(pRequest, code);
+    tsem_post(&pRequest->body.rspSem);
+    goto End;
+  }
 
   int32_t now = taosGetTimestampSec();
   int32_t delta = abs(now - connectRsp.svrTimestamp);
   if (delta > timestampDeltaLimit) {
     code = TSDB_CODE_TIME_UNSYNCED;
     tscError("time diff:%ds is too big", delta);
-    taosMemoryFree(pMsg->pEpSet);
-    taosMemoryFree(pMsg->pData);
     setErrno(pRequest, code);
     tsem_post(&pRequest->body.rspSem);
-    return code;
+    goto End;
   }
 
   /*assert(connectRsp.epSet.numOfEps > 0);*/
   if (connectRsp.epSet.numOfEps == 0) {
-    taosMemoryFree(pMsg->pEpSet);
-    taosMemoryFree(pMsg->pData);
     setErrno(pRequest, TSDB_CODE_MND_APP_ERROR);
     tsem_post(&pRequest->body.rspSem);
-    return code;
+    goto End;
   }
 
   if (connectRsp.dnodeNum == 1) {
@@ -113,14 +113,15 @@ int32_t processConnectRsp(void* param, SDataBuf* pMsg, int32_t code) {
 
   hbRegisterConn(pTscObj->pAppInfo->pAppHbMgr, pTscObj->id, connectRsp.clusterId, connectRsp.connType);
 
-  //  pRequest->body.resInfo.pRspMsg = pMsg->pData;
   tscDebug("0x%" PRIx64 " clusterId:%" PRId64 ", totalConn:%" PRId64, pRequest->requestId, connectRsp.clusterId,
            pTscObj->pAppInfo->numOfConns);
 
-  taosMemoryFree(pMsg->pData);
-  taosMemoryFree(pMsg->pEpSet);
   tsem_post(&pRequest->body.rspSem);
-  return 0;
+End:
+
+  taosMemoryFree(pMsg->pEpSet);
+  taosMemoryFree(pMsg->pData);
+  return code;
 }
 
 SMsgSendInfo* buildMsgInfoImpl(SRequestObj* pRequest) {

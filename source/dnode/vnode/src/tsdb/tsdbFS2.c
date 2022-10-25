@@ -56,8 +56,8 @@ typedef struct {
 
 // STsdbFile ==========================================
 static void tsdbFileName(STsdb *pTsdb, const STsdbFile *pFile, char fName[]) {
-  char   *fSuffix = NULL;
-  SVnode *pVnode = pTsdb->pVnode;
+  const char *fSuffix = NULL;
+  SVnode     *pVnode = pTsdb->pVnode;
 
   switch (pFile->ftype) {
     case TSDB_FTYPE_HEAD:

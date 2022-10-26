@@ -30,15 +30,73 @@ _exit:
 
 // MERGE MULTIPLE STT ===================================
 typedef struct {
+  STsdb *pTsdb;
   // data
 } STsdbMerger;
 
-int32_t tsdbMerge(STsdb *pTsdb) {
+static int32_t tsdbMergerInit(STsdb *pTsdb, STsdbMerger **ppMerger) {
   int32_t code = 0;
   int32_t lino = 0;
+
+  STsdbMerger *pMerger = (STsdbMerger *)taosMemoryCalloc(1, sizeof(*pMerger));
+  if (NULL == pMerger) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pMerger->pTsdb = pTsdb;
+  // todo
+_exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+    *ppMerger = NULL;
+  } else {
+  }
+  return code;
+}
+
+static void tsdbMergerClear(STsdbMerger *pMerger) {
+  if (pMerger) {
+    taosMemoryFree(pMerger);
+  }
+}
+
+static int32_t tsdbMergeFileGroup(STsdbMerger *pMerger, int32_t fid) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  STsdb *pTsdb = pMerger->pTsdb;
   // TODO
 _exit:
-  tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  } else {
+    tsdbDebug("vgId:%d %s done, fid:%d", TD_VID(pTsdb->pVnode), __func__, fid);
+  }
+  return code;
+}
+
+int32_t tsdbMerge(STsdb *pTsdb, int32_t *aFid, int32_t nFid) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  // init merger (todo)
+  STsdbMerger *pMerger = NULL;
+  code = tsdbMergerInit(pTsdb, &pMerger);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  // loop to merge
+  for (int32_t iFid = 0; iFid < nFid; iFid++) {
+    code = tsdbMergeFileGroup(pMerger, aFid[iFid]);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  // commit file change (todo)
+_exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  }
+  tsdbMergerClear(pMerger);
   return code;
 }
 

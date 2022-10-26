@@ -24,7 +24,7 @@ typedef volatile int32_t vi32_t;
 #define TSDB_FTYPE_DEL  4  // .del
 #define TSDB_FTYPE_MAX  5
 
-typedef struct {
+struct TSDBFILE {
   char     *path;
   int32_t   szPage;
   int32_t   flags;
@@ -32,37 +32,41 @@ typedef struct {
   int64_t   pgno;
   uint8_t  *pBuf;
   int64_t   szFile;
-} TSDBFILE;
+};
 
-typedef struct {
+struct STsdbFile {
   int32_t ftype;
   SDiskID did;
   int32_t fid;
   int64_t id;
   int64_t size;
   int64_t offset;
-} STsdbFile;
+};
 
-typedef struct {
+struct STsdbFileObj {
   vi32_t      nRef;
   SRBTreeNode rbtn;
   STsdbFile   file;
-} STsdbFileObj;
+};
 
-typedef struct {
+#define RBTNODE_TO_FILE_OBJ(PNODE) ((STsdbFileObj *)(((uint8_t *)PNODE) - offsetof(STsdbFileObj, rbtn)))
+
+struct STsdbFileGroup {
   int32_t       fid;
   STsdbFileObj *fHead;
   STsdbFileObj *fData;
   STsdbFileObj *fSma;
   SRBTree       fStt;
   SRBTreeNode   rbtn;
-} STsdbFileGroup;
+};
 
-typedef struct {
+#define RBTNODE_TO_FILE_GROUP(PNODE) ((STsdbFileGroup *)(((uint8_t *)PNODE) - offsetof(STsdbFileGroup, rbtn)))
+
+struct STsdbFileSystem {
   int64_t       id;
   STsdbFileObj *fDel;
   SRBTree       fGroup;  // SArray<STsdbFileGroup>
-} STsdbFileSystem;
+};
 
 // TSDBFILE ==========================================
 static int32_t tsdbFWritePage() {
@@ -265,17 +269,17 @@ static int32_t tsdbRefFileObj(STsdb *pTsdb, STsdbFileObj *pFileObj) {
   return nRef;
 }
 
-static int32_t tsdbUnrefFileObj(STsdb *pTsdb, STsdbFileObj *pFileObj) {
+static int32_t tsdbUnrefFileObj(STsdb *pTsdb, STsdbFileObj *pFileObj, int8_t remove) {
   int32_t nRef = atomic_sub_fetch_32(&pFileObj->nRef, 1);
   if (0 == nRef) {
-    // remove file and obj
-    char fName[TSDB_FILENAME_LEN] = {0};
+    if (remove) {
+      char fName[TSDB_FILENAME_LEN] = {0};
+      tsdbFileName(pTsdb, &pFileObj->file, fName);
+      (void)taosRemoveFile(fName);
+      tsdbDebug("vgId:%d %s, remove file:%s", TD_VID(pTsdb->pVnode), __func__, fName);
+    }
 
-    tsdbFileName(pTsdb, &pFileObj->file, fName);
-    (void)taosRemoveFile(fName);
     tsdbFreeFileObj(pFileObj);
-
-    tsdbDebug("vgId:%d %s, file:%s", TD_VID(pTsdb->pVnode), __func__, fName);
   }
   return nRef;
 }
@@ -298,12 +302,12 @@ static int32_t tsdbSttFileCmprFn(const SRBTreeNode *p1, const SRBTreeNode *p2) {
 
 // STsdbFileGroup ==========================================
 static int32_t tsdbFileGroupCmprFn(const SRBTreeNode *p1, const SRBTreeNode *p2) {
-  STsdbFileGroup *pFileGroup1 = (STsdbFileGroup *)(((uint8_t *)p1) - offsetof(STsdbFileGroup, rbtn));
-  STsdbFileGroup *pFileGroup2 = (STsdbFileGroup *)(((uint8_t *)p2) - offsetof(STsdbFileGroup, rbtn));
+  STsdbFileGroup *pFg1 = RBTNODE_TO_FILE_GROUP(p1);
+  STsdbFileGroup *pFg2 = RBTNODE_TO_FILE_GROUP(p2);
 
-  if (pFileGroup1->fid < pFileGroup2->fid) {
+  if (pFg1->fid < pFg2->fid) {
     return -1;
-  } else if (pFileGroup1->fid > pFileGroup2->fid) {
+  } else if (pFg1->fid > pFg2->fid) {
     return 1;
   }
 
@@ -388,7 +392,7 @@ int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback) {
   int32_t lino = 0;
 
   // create
-  STsdbFileSystem **ppFileSystem = NULL;  // todo
+  STsdbFileSystem **ppFileSystem = &pTsdb->pFS;
   code = tsdbNewFileSystem(ppFileSystem);
   TSDB_CHECK_CODE(code, lino, _exit);
 
@@ -422,6 +426,8 @@ int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback) {
 _exit:
   if (code) {
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  } else {
+    tsdbDebug("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
   }
   return code;
 }
@@ -429,10 +435,63 @@ _exit:
 int32_t tsdbCloseFileSystem(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  if (NULL == pTsdb->pFS) return code;
+
+  STsdbFileSystem *pFS = pTsdb->pFS;
+  int32_t          nRef = 0;
+  pTsdb->pFS = NULL;
+
+  SRBTreeIter  fgIter = tRBTreeIterCreate(&pFS->fGroup, 1);
+  SRBTreeNode *fgNode = tRBTreeIterNext(&fgIter);
+  while (fgNode) {
+    tRBTreeDrop(&pFS->fGroup, fgNode);
+
+    STsdbFileGroup *pFg = RBTNODE_TO_FILE_GROUP(fgNode);
+
+    // TSDB_FTYPE_HEAD
+    nRef = tsdbUnrefFileObj(pTsdb, pFg->fHead, 0);
+    ASSERT(0 == nRef);
+
+    // TSDB_FTYPE_DATA
+    nRef = tsdbUnrefFileObj(pTsdb, pFg->fData, 0);
+    ASSERT(0 == nRef);
+
+    // TSDB_FTYPE_SMA
+    nRef = tsdbUnrefFileObj(pTsdb, pFg->fSma, 0);
+    ASSERT(0 == nRef);
+
+    // TSDB_FTYPE_STT
+    SRBTreeIter sttIter = tRBTreeIterCreate(&pFg->fStt, 1);
+    while (true) {
+      SRBTreeNode *sttNode = tRBTreeIterNext(&sttIter);
+      if (NULL == sttNode) break;
+
+      tRBTreeDrop(&pFg->fStt, sttNode);
+      STsdbFileObj *fStt = RBTNODE_TO_FILE_OBJ(sttNode);
+
+      nRef = tsdbUnrefFileObj(pTsdb, fStt, 0);
+      ASSERT(0 == nRef);
+    }
+
+    taosMemoryFree(pFg);
+
+    fgNode = tRBTreeIterNext(&fgIter);
+  }
+
+  // TSDB_FTYPE_DEL
+  if (pFS->fDel) {
+    nRef = tsdbUnrefFileObj(pTsdb, pFS->fDel, 0);
+    ASSERT(0 == nRef);
+  }
+
+  tsdbFreeFileSystem(pFS);
+
 _exit:
   if (code) {
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  } else {
+    tsdbDebug("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
   }
   return code;
 }

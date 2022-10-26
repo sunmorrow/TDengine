@@ -328,6 +328,24 @@ int32_t tDiskDataBuilderClear(SDiskDataBuilder *pBuilder);
 int32_t tDiskDataAddRow(SDiskDataBuilder *pBuilder, TSDBROW *pRow, STSchema *pTSchema, TABLEID *pId);
 int32_t tGnrtDiskData(SDiskDataBuilder *pBuilder, const SDiskData **ppDiskData, const SBlkInfo **ppBlkInfo);
 
+// tsdbFS2.c ==============================================================================================
+typedef struct TSDBFILE        TSDBFILE;
+typedef struct STsdbFile       STsdbFile;
+typedef struct STsdbFileObj    STsdbFileObj;
+typedef struct STsdbFileGroup  STsdbFileGroup;
+typedef struct STsdbFileSystem STsdbFileSystem;
+/* TSDBFILE */
+
+/* STsdbFile */
+
+/* STsdbFileObj */
+
+/* STsdbFileGroup */
+
+/* STsdbFileSystem */
+int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback);
+int32_t tsdbCloseFileSystem(STsdb *pTsdb);
+
 // structs =======================
 struct STsdbFS {
   SDelFile *pDelFile;
@@ -335,15 +353,16 @@ struct STsdbFS {
 };
 
 struct STsdb {
-  char          *path;
-  SVnode        *pVnode;
-  STsdbKeepCfg   keepCfg;
-  TdThreadRwlock rwLock;
-  SMemTable     *mem;
-  SMemTable     *imem;
-  STsdbFS        fs;
-  SLRUCache     *lruCache;
-  TdThreadMutex  lruMutex;
+  char            *path;
+  SVnode          *pVnode;
+  STsdbKeepCfg     keepCfg;
+  TdThreadRwlock   rwLock;
+  SMemTable       *mem;
+  SMemTable       *imem;
+  STsdbFS          fs;  // todo: delte
+  STsdbFileSystem *pFS;
+  SLRUCache       *lruCache;
+  TdThreadMutex    lruMutex;
 };
 
 struct TSDBKEY {

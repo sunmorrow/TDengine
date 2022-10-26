@@ -25,6 +25,16 @@ typedef volatile int32_t vi32_t;
 #define TSDB_FTYPE_MAX  5
 
 typedef struct {
+  char     *path;
+  int32_t   szPage;
+  int32_t   flags;
+  TdFilePtr pFD;
+  int64_t   pgno;
+  uint8_t  *pBuf;
+  int64_t   szFile;
+} TSDBFILE;
+
+typedef struct {
   int32_t ftype;
   SDiskID did;
   int32_t fid;
@@ -53,6 +63,93 @@ typedef struct {
   STsdbFileObj *fDel;
   SRBTree       fGroup;  // SArray<STsdbFileGroup>
 } STsdbFileSystem;
+
+// TSDBFILE ==========================================
+static int32_t tsdbFWritePage() {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
+static int32_t tsdbFReadPage() {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
+int32_t tsdbFOpen(const char *path, int32_t szPage, int32_t flags, TSDBFILE **ppFILE) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  TSDBFILE *pFILE = (TSDBFILE *)taosMemoryCalloc(1, sizeof(*pFILE) + strlen(path) + 1);
+  if (NULL == pFILE) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pFILE->path = (char *)&pFILE[1];
+  strcpy(pFILE->path, path);
+  pFILE->szPage = szPage;
+  pFILE->flags = flags;
+  pFILE->pgno = 0;
+  pFILE->pBuf = taosMemoryMalloc(szPage);
+  if (NULL == pFILE->pBuf) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  // TODO
+_exit:
+  if (code) {
+    *ppFILE = NULL;
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+
+    if (pFILE) {
+      // todo
+      if (pFILE->pBuf) taosMemoryFree(pFILE->pBuf);
+      taosMemoryFree(pFILE);
+    }
+  } else {
+    *ppFILE = pFILE;
+  }
+  return code;
+}
+
+int32_t tsdbFClose(TSDBFILE *pFILE) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
+int32_t tsdbFWrite(TSDBFILE *pFILE, int64_t loffset, const uint8_t *pBuf, int64_t size) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
+int32_t tsdbFRead(TSDBFILE *pFILE, int64_t loffset, uint8_t *pBuf, int64_t size) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
+int32_t tsdbFFlush(TSDBFILE *pFILE) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
 
 // STsdbFile ==========================================
 static void tsdbFileName(STsdb *pTsdb, const STsdbFile *pFile, char fName[]) {

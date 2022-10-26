@@ -84,11 +84,11 @@ static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextK
 
 _exit:
   if (code) {
-    tsdbError("vgId:%d %s failed at line %d since %s, suid:%" PRId64 " uid:%" PRId64, TD_VID(pTsdb->pVnode), __func__,
-              lino, tstrerror(code), pTbData->suid, pTbData->uid);
+    tsdbError("vgId:%d %s failed at line %d since %s, fid:%d suid:%" PRId64 " uid:%" PRId64, TD_VID(pTsdb->pVnode),
+              __func__, lino, tstrerror(code), pFlusher->fid, pTbData->suid, pTbData->uid);
   } else {
-    tsdbDebug("vgId:%d %s done, suid:%" PRId64 " uid:%" PRId64, TD_VID(pTsdb->pVnode), __func__, pTbData->suid,
-              pTbData->uid);
+    tsdbDebug("vgId:%d %s done, fid:%d suid:%" PRId64 " uid:%" PRId64, TD_VID(pTsdb->pVnode), __func__, pFlusher->fid,
+              pTbData->suid, pTbData->uid);
   }
   return code;
 }
@@ -119,7 +119,8 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher) {
 
 _exit:
   if (code) {
-    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+    tsdbError("vgId:%d %s failed at line %d since %s, fid:%d", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code),
+              pFlusher->fid);
   } else {
     tsdbDebug("vgId:%d %s done, fid:%d", TD_VID(pTsdb->pVnode), __func__, pFlusher->fid);
   }

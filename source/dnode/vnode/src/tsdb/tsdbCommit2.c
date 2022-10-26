@@ -17,34 +17,58 @@
 
 // FLUSH MEMTABLE TO FILE SYSTEM ===================================
 typedef struct {
-  STsdb *pTsdb;
+  // configs
+  STsdb  *pTsdb;
+  int32_t minutes;
+  int8_t  precision;
+  int32_t minRow;
+  int32_t maxRow;
+  int8_t  cmprAlg;
+  int8_t  sttTrigger;
 
   SArray *aTbDataP;
-  TSKEY   nextKey;
 
+  // time-series data
+  TSKEY      nextKey;
   int32_t    fid;
   TSKEY      minKey;
   TSKEY      maxKey;
   SArray    *aSttBlk;
   SBlockData aBData[2];
   int32_t    iTbData;
+  // tomestone data
 } STsdbFlusher;
 
 static int32_t tsdbFlusherInit(STsdb *pTsdb, STsdbFlusher *pFlusher) {
   int32_t code = 0;
   int32_t lino = 0;
+  SVnode *pVnode = pTsdb->pVnode;
 
   pFlusher->pTsdb = pTsdb;
-  // TODO
+  pFlusher->minutes = pTsdb->keepCfg.days;
+  pFlusher->precision = pTsdb->keepCfg.precision;
+  pFlusher->minRow = pVnode->config.tsdbCfg.minRows;
+  pFlusher->maxRow = pVnode->config.tsdbCfg.maxRows;
+  pFlusher->cmprAlg = pVnode->config.tsdbCfg.compression;
+  pFlusher->sttTrigger = pVnode->config.sttTrigger;
+  pFlusher->aTbDataP = tsdbMemTableGetTbDataArray(pTsdb->imem);
+  if (NULL == pFlusher->aTbDataP) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
 _exit:
   if (code) {
-    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pVnode), __func__, lino, tstrerror(code));
   }
   return code;
 }
 
 static void tsdbFlusherClear(STsdbFlusher *pFlusher) {
-  // todo
+  if (pFlusher->aTbDataP) {
+    taosArrayDestroy(pFlusher->aTbDataP);
+    pFlusher->aTbDataP = NULL;
+  }
 }
 
 static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKey) {
@@ -133,13 +157,9 @@ static int32_t tsdbFlushTimeSeriesData(STsdbFlusher *pFlusher) {
   STsdb     *pTsdb = pFlusher->pTsdb;
   SMemTable *pMemTable = pTsdb->imem;
 
-  if (0 == pMemTable->nRow) {
-    return code;
-  }
-
   pFlusher->nextKey = pMemTable->minKey;
   while (pFlusher->nextKey < TSKEY_MAX) {
-    code = tsdbFlushFileTimeSeriesData(pFlusher);
+    code = tsdbFlushFileTimeSeriesData(pFlusher, &pFlusher->nextKey);
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
@@ -153,14 +173,10 @@ _exit:
 }
 
 static int32_t tsdbFlushDelData(STsdbFlusher *pFlusher) {
-  int32_t    code = 0;
-  int32_t    lino = 0;
-  STsdb     *pTsdb = pFlusher->pTsdb;
-  SMemTable *pMemTable = pTsdb->imem;
-
-  if (0 == pMemTable->nDel) {
-    return code;
-  }
+  int32_t code = 0;
+  int32_t lino = 0;
+  STsdb  *pTsdb = pFlusher->pTsdb;
+  // SMemTable *pMemTable = pTsdb->imem;
 
   // TODO
 
@@ -168,7 +184,7 @@ _exit:
   if (code) {
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
   } else {
-    tsdbDebug("vgId:%d %s done, nDel:%" PRId64, TD_VID(pTsdb->pVnode), __func__, pMemTable->nDel);
+    tsdbDebug("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
   }
   return code;
 }
@@ -187,6 +203,11 @@ int32_t tsdbFlush(STsdb *pTsdb) {
 
     tsdbUnrefMemTable(pMemTable);
     return code;
+  } else {
+    taosThreadRwlockWrlock(&pTsdb->rwLock);
+    pTsdb->mem = NULL;
+    pTsdb->imem = pMemTable;
+    taosThreadRwlockUnlock(&pTsdb->rwLock);
   }
 
   // flush ----
@@ -195,11 +216,20 @@ int32_t tsdbFlush(STsdb *pTsdb) {
   code = tsdbFlusherInit(pTsdb, &flusher);
   TSDB_CHECK_CODE(code, lino, _exit);
 
-  code = tsdbFlushTimeSeriesData(&flusher);
-  TSDB_CHECK_CODE(code, lino, _exit);
+  if (0 == taosArrayGetSize(flusher.aTbDataP)) {
+    // all table are droped
+    goto _exit;
+  }
 
-  code = tsdbFlushDelData(&flusher);
-  TSDB_CHECK_CODE(code, lino, _exit);
+  if (pMemTable->nRow > 0) {
+    code = tsdbFlushTimeSeriesData(&flusher);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  if (pMemTable->nDel > 0) {
+    code = tsdbFlushDelData(&flusher);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
 
 _exit:
   if (code) {

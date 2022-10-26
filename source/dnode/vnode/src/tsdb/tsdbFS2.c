@@ -49,7 +49,7 @@ struct STsdbFileObj {
   STsdbFile   file;
 };
 
-#define RBTNODE_TO_FILE_OBJ(PNODE) ((STsdbFileObj *)(((uint8_t *)PNODE) - offsetof(STsdbFileObj, rbtn)))
+#define RBTN_TO_FILE_OBJ(PNODE) ((STsdbFileObj *)(((uint8_t *)PNODE) - offsetof(STsdbFileObj, rbtn)))
 
 struct STsdbFileGroup {
   int32_t       fid;
@@ -60,7 +60,7 @@ struct STsdbFileGroup {
   SRBTreeNode   rbtn;
 };
 
-#define RBTNODE_TO_FILE_GROUP(PNODE) ((STsdbFileGroup *)(((uint8_t *)PNODE) - offsetof(STsdbFileGroup, rbtn)))
+#define RBTN_TO_FILE_GROUP(PNODE) ((STsdbFileGroup *)(((uint8_t *)PNODE) - offsetof(STsdbFileGroup, rbtn)))
 
 struct STsdbFileSystem {
   int64_t       id;
@@ -285,8 +285,8 @@ static int32_t tsdbUnrefFileObj(STsdb *pTsdb, STsdbFileObj *pFileObj, int8_t rem
 }
 
 static int32_t tsdbSttFileCmprFn(const SRBTreeNode *p1, const SRBTreeNode *p2) {
-  STsdbFileObj *pFileObj1 = (STsdbFileObj *)(((uint8_t *)p1) - offsetof(STsdbFileObj, rbtn));
-  STsdbFileObj *pFileObj2 = (STsdbFileObj *)(((uint8_t *)p2) - offsetof(STsdbFileObj, rbtn));
+  STsdbFileObj *pFileObj1 = RBTN_TO_FILE_OBJ(p1);
+  STsdbFileObj *pFileObj2 = RBTN_TO_FILE_OBJ(p2);
 
   ASSERT(pFileObj1->file.ftype == TSDB_FTYPE_STT);
   ASSERT(pFileObj2->file.ftype == TSDB_FTYPE_STT);
@@ -302,8 +302,8 @@ static int32_t tsdbSttFileCmprFn(const SRBTreeNode *p1, const SRBTreeNode *p2) {
 
 // STsdbFileGroup ==========================================
 static int32_t tsdbFileGroupCmprFn(const SRBTreeNode *p1, const SRBTreeNode *p2) {
-  STsdbFileGroup *pFg1 = RBTNODE_TO_FILE_GROUP(p1);
-  STsdbFileGroup *pFg2 = RBTNODE_TO_FILE_GROUP(p2);
+  STsdbFileGroup *pFg1 = RBTN_TO_FILE_GROUP(p1);
+  STsdbFileGroup *pFg2 = RBTN_TO_FILE_GROUP(p2);
 
   if (pFg1->fid < pFg2->fid) {
     return -1;
@@ -447,7 +447,7 @@ int32_t tsdbCloseFileSystem(STsdb *pTsdb) {
   while (fgNode) {
     tRBTreeDrop(&pFS->fGroup, fgNode);
 
-    STsdbFileGroup *pFg = RBTNODE_TO_FILE_GROUP(fgNode);
+    STsdbFileGroup *pFg = RBTN_TO_FILE_GROUP(fgNode);
 
     // TSDB_FTYPE_HEAD
     nRef = tsdbUnrefFileObj(pTsdb, pFg->fHead, 0);
@@ -468,7 +468,7 @@ int32_t tsdbCloseFileSystem(STsdb *pTsdb) {
       if (NULL == sttNode) break;
 
       tRBTreeDrop(&pFg->fStt, sttNode);
-      STsdbFileObj *fStt = RBTNODE_TO_FILE_OBJ(sttNode);
+      STsdbFileObj *fStt = RBTN_TO_FILE_OBJ(sttNode);
 
       nRef = tsdbUnrefFileObj(pTsdb, fStt, 0);
       ASSERT(0 == nRef);

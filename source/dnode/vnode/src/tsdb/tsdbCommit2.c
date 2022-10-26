@@ -17,14 +17,63 @@
 
 // FLUSH MEMTABLE TO FILE SYSTEM ===================================
 typedef struct {
+  STsdb *pTsdb;
   // data
-} STsdbCommitter;
+} STsdbFlusher;
 
-int32_t tsdbFlushMemTable(STsdb *pTsdb) {
+static int32_t tsdbFlusherInit(STsdb *pTsdb, STsdbFlusher *pFlusher) {
   int32_t code = 0;
   int32_t lino = 0;
   // TODO
 _exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  }
+  return code;
+}
+
+static void tsdbFlusherClear(STsdbFlusher *pFlusher) {
+  // todo
+}
+
+static int32_t tsdbFlushImpl(STsdbFlusher *pFlusher) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
+int32_t tsdbFlush(STsdb *pTsdb) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  // check ----
+  SMemTable *pMemTable = pTsdb->mem;
+  if (0 == pMemTable->nRow && 0 == pMemTable->nDel) {
+    taosThreadRwlockWrlock(&pTsdb->rwLock);
+
+    pTsdb->mem = NULL;
+    taosThreadRwlockUnlock(&pTsdb->rwLock);
+
+    tsdbUnrefMemTable(pMemTable);
+    return code;
+  }
+
+  // flush ----
+  STsdbFlusher flusher = {0};
+
+  code = tsdbFlusherInit(pTsdb, &flusher);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  code = tsdbFlushImpl(&flusher);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+_exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  }
+  tsdbFlusherClear(&flusher);
   return code;
 }
 

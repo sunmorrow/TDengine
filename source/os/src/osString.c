@@ -112,7 +112,7 @@ int32_t tasoUcs4Compare(TdUcs4 *f1_ucs4, TdUcs4 *f2_ucs4, int32_t bytes) {
 }
 
 TdUcs4 *tasoUcs4Copy(TdUcs4 *target_ucs4, TdUcs4 *source_ucs4, int32_t len_ucs4) {
-  assert(taosMemorySize(target_ucs4) >= len_ucs4 * sizeof(TdUcs4));
+  // assert(taosMemorySize(target_ucs4) >= len_ucs4 * sizeof(TdUcs4));
   return memcpy(target_ucs4, source_ucs4, len_ucs4 * sizeof(TdUcs4));
 }
 

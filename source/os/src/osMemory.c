@@ -13,6 +13,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#if 0
 #define ALLOW_FORBID_FUNC
 #ifdef _TD_DARWIN_64
 #include <malloc/malloc.h>
@@ -336,3 +337,5 @@ int64_t taosMemorySize(void *ptr) {
 #endif
 #endif
 }
+
+#endif

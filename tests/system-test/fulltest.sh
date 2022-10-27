@@ -252,7 +252,7 @@ python3 ./test.py -f 6-cluster/5dnode3mnodeRestartDnodeInsertDataAsync.py -N 5 -
 
 python3 ./test.py -f 6-cluster/5dnode3mnodeAdd1Ddnoe.py -N 6 -M 3 -C 5
 # BUG python3 ./test.py -f 6-cluster/5dnode3mnodeStopInsert.py
-# TD-19646 python3 ./test.py -f 6-cluster/5dnode3mnodeDrop.py -N 5
+python3 ./test.py -f 6-cluster/5dnode3mnodeDrop.py -N 5
 # TD-19646 python3 test.py -f 6-cluster/5dnode3mnodeStopConnect.py -N 5 -M 3
 
 python3 ./test.py -f 6-cluster/5dnode3mnodeRecreateMnode.py  -N 5 -M 3
@@ -283,7 +283,7 @@ python3 test.py -f 6-cluster/vnode/4dnode1mnode_basic_replica3_querydatas_stop_f
 # python3 test.py -f 6-cluster/vnode/4dnode1mnode_basic_replica3_querydatas_stop_leader_force_stop.py -N 4 -M 1
 python3 test.py -f 6-cluster/vnode/4dnode1mnode_basic_replica3_querydatas_stop_leader.py -N 4 -M 1
 python3 test.py -f 6-cluster/vnode/4dnode1mnode_basic_replica3_vgroups.py  -N 4 -M 1
-python3 test.py -f 6-cluster/vnode/4dnode1mnode_basic_replica3_vgroups_stopOne.py -N 4 -M 1
+#python3 test.py -f 6-cluster/vnode/4dnode1mnode_basic_replica3_vgroups_stopOne.py -N 4 -M 1
 
 
 python3 ./test.py -f 7-tmq/create_wrong_topic.py
@@ -551,7 +551,7 @@ python3 ./test.py -f 2-query/upper.py -Q  4
 python3 ./test.py -f 2-query/lower.py -Q  4
 python3 ./test.py -f 2-query/join.py -Q  4
 python3 ./test.py -f 2-query/join2.py -Q  4
-python3 ./test.py -f 2-query/cast.py -Q  4
+#python3 ./test.py -f 2-query/cast.py -Q  4
 python3 ./test.py -f 2-query/substr.py -Q  4
 python3 ./test.py -f 2-query/union.py -Q  4
 python3 ./test.py -f 2-query/union1.py -Q  4

@@ -674,6 +674,16 @@ void schFreeJobImpl(void *job) {
   qDebug("QID:0x%" PRIx64 " sch job freed, refId:0x%" PRIx64 ", pointer:%p", queryId, refId, pJob);
 }
 
+int32_t schAsyncFreeJob(void* param) {
+  int64_t* jobId = (int64_t*)param;
+  
+  schReleaseJob(*jobId);    
+
+  taosMemoryFree(param);
+  return TSDB_CODE_SUCCESS;
+}
+
+
 int32_t schJobFetchRows(SSchJob *pJob) {
   int32_t code = 0;
 

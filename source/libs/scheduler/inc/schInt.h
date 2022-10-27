@@ -525,6 +525,7 @@ int32_t  schProcessOnJobDropped(SSchJob *pJob, int32_t errCode);
 uint64_t schGenTaskId(void);
 void     schCloseJobRef(void);
 int32_t  schAsyncExecJob(SSchedulerReq *pReq, int64_t *pJob);
+int32_t  schAsyncFreeJob(void* param);
 int32_t  schJobFetchRows(SSchJob *pJob);
 int32_t  schJobFetchRowsA(SSchJob *pJob);
 int32_t  schUpdateTaskHandle(SSchJob *pJob, SSchTask *pTask, bool dropExecNode, void *handle, int32_t execId);

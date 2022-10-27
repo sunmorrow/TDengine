@@ -158,7 +158,16 @@ void schedulerFreeJob(int64_t *jobId, int32_t errCode) {
   SCH_JOB_DLOG("start to free job 0x%" PRIx64 ", code:%s", *jobId, tstrerror(errCode));
   schHandleJobDrop(pJob, errCode);
 
-  schReleaseJob(*jobId);
+  int64_t* param = taosMemoryCalloc(1, sizeof(int64_t));
+  *param = *jobId;
+
+  int32_t code = taosAsyncExec(schAsyncFreeJob, param, NULL);
+  if (0 != code) {
+    SCH_JOB_ELOG("failed to async free job, error:%s", tstrerror(code));
+    taosMemoryFree(param);
+    schReleaseJob(*jobId);    
+  }
+
   *jobId = 0;
 }
 

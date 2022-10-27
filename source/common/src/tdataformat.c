@@ -21,9 +21,40 @@
 #include "tlog.h"
 
 // SBuffer ================================
-void tBufferDestroy(SBuffer *pBuffer) {
-  tFree(pBuffer->pBuf);
-  pBuffer->pBuf = NULL;
+struct SBuffer {
+  int64_t  nBuf;
+  uint8_t *pBuf;
+};
+
+int32_t tBufferCreate(SBuffer **ppBuffer, int64_t size) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  SBuffer *pBuffer = (SBuffer *)taosMemoryCalloc(1, sizeof(*pBuffer));
+  if (NULL == pBuffer) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  code = tBufferInit(pBuffer, size);
+
+_exit:
+  if (code) {
+    *ppBuffer = NULL;
+    tBufferDestroy(&pBuffer);
+  } else {
+    *ppBuffer = pBuffer;
+  }
+  return code;
+}
+
+void tBufferDestroy(SBuffer **ppBuffer) {
+  SBuffer *pBuffer = *ppBuffer;
+
+  if (pBuffer) {
+    tFree(pBuffer->pBuf);
+    *ppBuffer = NULL;
+  }
 }
 
 int32_t tBufferInit(SBuffer *pBuffer, int64_t size) {
@@ -923,7 +954,7 @@ char *tTagValToData(const STagVal *value, bool isJson) {
 }
 
 bool tTagGet(const STag *pTag, STagVal *pTagVal) {
-  if(!pTag || !pTagVal){
+  if (!pTag || !pTagVal) {
     return false;
   }
 

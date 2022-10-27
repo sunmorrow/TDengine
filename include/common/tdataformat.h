@@ -58,14 +58,9 @@ const static uint8_t BIT2_MAP[4][4] = {{0b00000000, 0b00000001, 0b00000010, 0},
 #define GET_BIT2(p, i)    (((p)[(i) >> 2] >> BIT2_MAP[(i)&3][3]) & ((uint8_t)3))
 
 // SBuffer ================================
-struct SBuffer {
-  int64_t  nBuf;
-  uint8_t *pBuf;
-};
 
-#define tBufferCreate() \
-  (SBuffer) { .nBuf = 0, .pBuf = NULL }
-void    tBufferDestroy(SBuffer *pBuffer);
+int32_t tBufferCreate(SBuffer **ppBuffer, int64_t size);
+void    tBufferDestroy(SBuffer **ppBuffer);
 int32_t tBufferInit(SBuffer *pBuffer, int64_t size);
 int32_t tBufferPut(SBuffer *pBuffer, const void *pData, int64_t nData);
 

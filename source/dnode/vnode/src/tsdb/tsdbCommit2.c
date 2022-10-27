@@ -29,12 +29,12 @@ typedef struct {
   SArray *aTbDataP;
 
   // time-series data
-  int32_t    fid;
-  TSKEY      minKey;
-  TSKEY      maxKey;
-  SArray    *aSttBlk;
-  SBlockData aBData[2];
-  int32_t    iTbData;
+  int32_t     fid;
+  TSKEY       minKey;
+  TSKEY       maxKey;
+  SArray     *aSttBlk;
+  SBlockData *aBData[2];
+  int32_t     iTbData;
   // tomestone data
 } STsdbFlusher;
 
@@ -121,11 +121,16 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   int32_t lino = 0;
   STsdb  *pTsdb = pFlusher->pTsdb;
 
-  // prepare by setting state
+  // prepare
   pFlusher->fid = tsdbKeyFid(*nextKey, pFlusher->minutes, pFlusher->precision);
   tsdbFidKeyRange(pFlusher->fid, pFlusher->minutes, pFlusher->precision, &pFlusher->minKey, &pFlusher->maxKey);
 
-  // create/open file to write (todo)
+  // create/open file to write
+  // 1. get the fid of file group
+  // 2. create a new stt file with pFg->id++
+  // STsdbFileGroup *pFg = NULL;
+  // code = tsdbGetOrCreateFileGroup(pTsdb, pFlusher->fid, &pFg);
+  // TSDB_CHECK_CODE(code, lino, _exit);
 
   // loop to commit
   *nextKey = TSKEY_MAX;
@@ -156,7 +161,7 @@ static int32_t tsdbFlushTimeSeriesData(STsdbFlusher *pFlusher) {
   STsdb     *pTsdb = pFlusher->pTsdb;
   SMemTable *pMemTable = pTsdb->imem;
 
-  TSKEY nextKey = pMemTable->minKey;  // todo: the minkey may be dropped
+  TSKEY nextKey = pMemTable->minKey;
   while (nextKey < TSKEY_MAX) {
     code = tsdbFlushFileTimeSeriesData(pFlusher, &nextKey);
     TSDB_CHECK_CODE(code, lino, _exit);
@@ -175,7 +180,6 @@ static int32_t tsdbFlushDelData(STsdbFlusher *pFlusher) {
   int32_t code = 0;
   int32_t lino = 0;
   STsdb  *pTsdb = pFlusher->pTsdb;
-  // SMemTable *pMemTable = pTsdb->imem;
 
   // TODO
 
@@ -213,6 +217,8 @@ int32_t tsdbFlush(STsdb *pTsdb) {
 
   code = tsdbFlusherInit(pTsdb, &flusher);
   TSDB_CHECK_CODE(code, lino, _exit);
+
+  ASSERT(taosArrayGetSize(flusher.aTbDataP) > 0);
 
   if (pMemTable->nRow > 0) {
     code = tsdbFlushTimeSeriesData(&flusher);

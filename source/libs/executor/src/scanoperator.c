@@ -4106,6 +4106,33 @@ int32_t createScanTableListInfo(SScanPhysiNode* pScanNode, SNodeList* pGroupTags
 
 int32_t createMultipleDataReaders(SQueryTableDataCond* pQueryCond, SReadHandle* pHandle, STableListInfo* pTableListInfo,
                                   int32_t tableStartIdx, int32_t tableEndIdx, SArray* arrayReader, const char* idstr) {
+  SArray* subTableList = taosArrayInit(1, sizeof(STableKeyInfo));
+  for (int i = tableStartIdx; i <= tableEndIdx; ++i) {
+    taosArrayPush(subTableList, taosArrayGet(pTableListInfo->pTableList, i));
+  }
+
+  STsdbReader* pReader = NULL;
+  tsdbReaderOpen(pHandle->vnode, pQueryCond, subTableList, &pReader, idstr);
+  taosArrayPush(arrayReader, &pReader);
+  taosArrayDestroy(subTableList);
+
+  return TSDB_CODE_SUCCESS;
+  // for (int32_t i = tableStartIdx; i <= tableEndIdx; ++i) {
+  //   SArray* subTableList = taosArrayInit(1, sizeof(STableKeyInfo));
+  //   taosArrayPush(subTableList, taosArrayGet(pTableListInfo->pTableList, i));
+
+  //  STsdbReader* pReader = NULL;
+  //  tsdbReaderOpen(pHandle->vnode, pQueryCond, subTableList, &pReader, idstr);
+  //  taosArrayPush(arrayReader, &pReader);
+
+  //  taosArrayDestroy(subTableList);
+  //}
+
+  // return TSDB_CODE_SUCCESS;
+}
+int32_t createMultipleDataReaders2(SQueryTableDataCond* pQueryCond, SReadHandle* pHandle,
+                                   STableListInfo* pTableListInfo, int32_t tableStartIdx, int32_t tableEndIdx,
+                                   SArray* arrayReader, const char* idstr) {
   for (int32_t i = tableStartIdx; i <= tableEndIdx; ++i) {
     SArray* subTableList = taosArrayInit(1, sizeof(STableKeyInfo));
     taosArrayPush(subTableList, taosArrayGet(pTableListInfo->pTableList, i));
@@ -4356,10 +4383,11 @@ int32_t startGroupTableMergeScan(SOperatorInfo* pOperator) {
 
   tsortSetFetchRawDataFp(pInfo->pSortHandle, getTableDataBlock, NULL, NULL);
 
-  size_t numReaders = taosArrayGetSize(pInfo->dataReaders);
+  size_t numReaders = tableEndIdx - tableStartIdx + 1;
+
   for (int32_t i = 0; i < numReaders; ++i) {
     STableMergeScanSortSourceParam param = {0};
-    param.readerIdx = i;
+    param.readerIdx = taosArrayGetSize(pInfo->dataReaders) - 1;
     param.pOperator = pOperator;
     param.inputBlock = createOneDataBlock(pInfo->pResBlock, false);
     taosArrayPush(pInfo->sortSourceParams, &param);

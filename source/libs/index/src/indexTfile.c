@@ -233,13 +233,13 @@ static int32_t tfSearchTerm(void* reader, SIndexTerm* tem, SIdxTRslt* tr) {
   if (fstGet(((TFileReader*)reader)->fst, &key, &offset)) {
     int64_t et = taosGetTimestampUs();
     int64_t cost = et - st;
-    indexInfo("index: %" PRIu64 ", col: %s, colVal: %s, found table info in tindex, time cost: %" PRIu64 "us",
-              tem->suid, tem->colName, tem->colVal, cost);
+    indexDebug("index: %" PRIu64 ", col: %s, colVal: %s, found table info in tindex, time cost: %" PRIu64 "us",
+               tem->suid, tem->colName, tem->colVal, cost);
 
     ret = tfileReaderLoadTableIds((TFileReader*)reader, (int32_t)offset, tr->total);
     cost = taosGetTimestampUs() - et;
-    indexInfo("index: %" PRIu64 ", col: %s, colVal: %s, load all table info, time cost: %" PRIu64 "us", tem->suid,
-              tem->colName, tem->colVal, cost);
+    indexDebug("index: %" PRIu64 ", col: %s, colVal: %s, load all table info, time cost: %" PRIu64 "us", tem->suid,
+               tem->colName, tem->colVal, cost);
   }
   fstSliceDestroy(&key);
   return 0;
@@ -373,14 +373,14 @@ static int32_t tfSearchTerm_JSON(void* reader, SIndexTerm* tem, SIdxTRslt* tr) {
   if (fstGet(((TFileReader*)reader)->fst, &key, &offset)) {
     int64_t et = taosGetTimestampUs();
     int64_t cost = et - st;
-    indexInfo("index: %" PRIu64 ", col: %s, colVal: %s, found table info in tindex, time cost: %" PRIu64 "us",
-              tem->suid, tem->colName, tem->colVal, cost);
+    indexDebug("index: %" PRIu64 ", col: %s, colVal: %s, found table info in tindex, time cost: %" PRIu64 "us",
+               tem->suid, tem->colName, tem->colVal, cost);
 
     ret = tfileReaderLoadTableIds((TFileReader*)reader, offset, tr->total);
     cost = taosGetTimestampUs() - et;
-    indexInfo("index: %" PRIu64 ", col: %s, colVal: %s, load all table info, offset: %" PRIu64
-              ", size: %d, time cost: %" PRIu64 "us",
-              tem->suid, tem->colName, tem->colVal, offset, (int)taosArrayGetSize(tr->total), cost);
+    indexDebug("index: %" PRIu64 ", col: %s, colVal: %s, load all table info, offset: %" PRIu64
+               ", size: %d, time cost: %" PRIu64 "us",
+               tem->suid, tem->colName, tem->colVal, offset, (int)taosArrayGetSize(tr->total), cost);
   }
   taosMemoryFree(p);
   fstSliceDestroy(&key);
@@ -617,8 +617,8 @@ int tfileWriterPut(TFileWriter* tw, void* data, bool order) {
       indexError("failed to write data: %s, offset: %d len: %d", v->colVal, v->offset,
                  (int)taosArrayGetSize(v->tableId));
     } else {
-      indexInfo("success to write data: %s, offset: %d len: %d", v->colVal, v->offset,
-                (int)taosArrayGetSize(v->tableId));
+      indexDebug("success to write data: %s, offset: %d len: %d", v->colVal, v->offset,
+                 (int)taosArrayGetSize(v->tableId));
     }
   }
   fstBuilderDestroy(tw->fb);
@@ -683,7 +683,7 @@ int idxTFileSearch(void* tfile, SIndexTermQuery* query, SIdxTRslt* result) {
     return 0;
   }
   int64_t cost = taosGetTimestampUs() - st;
-  indexInfo("index tfile stage 1 cost: %" PRId64 "", cost);
+  indexDebug("index tfile stage 1 cost: %" PRId64 "", cost);
 
   return tfileReaderSearch(reader, query, result);
 }
@@ -840,7 +840,7 @@ static int tfileWriteFstOffset(TFileWriter* tw, int32_t offset) {
   if (sizeof(fstOffset) != tw->ctx->write(tw->ctx, (char*)&fstOffset, sizeof(fstOffset))) {
     return -1;
   }
-  indexInfo("tfile write fst offset: %d", tw->ctx->size(tw->ctx));
+  indexDebug("tfile write fst offset: %d", tw->ctx->size(tw->ctx));
   tw->offset += sizeof(fstOffset);
   return 0;
 }
@@ -850,13 +850,13 @@ static int tfileWriteHeader(TFileWriter* writer) {
   TFileHeader* header = &writer->header;
   memcpy(buf, (char*)header, sizeof(buf));
 
-  indexInfo("tfile pre write header size: %d", writer->ctx->size(writer->ctx));
+  indexDebug("tfile pre write header size: %d", writer->ctx->size(writer->ctx));
   int nwrite = writer->ctx->write(writer->ctx, buf, sizeof(buf));
   if (sizeof(buf) != nwrite) {
     return -1;
   }
 
-  indexInfo("tfile after write header size: %d", writer->ctx->size(writer->ctx));
+  indexDebug("tfile after write header size: %d", writer->ctx->size(writer->ctx));
   writer->offset = nwrite;
   return 0;
 }
@@ -878,7 +878,7 @@ static int tfileWriteFooter(TFileWriter* write) {
   taosEncodeFixedU64((void**)(void*)&pBuf, FILE_MAGIC_NUMBER);
   int nwrite = write->ctx->write(write->ctx, buf, (int32_t)strlen(buf));
 
-  indexInfo("tfile write footer size: %d", write->ctx->size(write->ctx));
+  indexDebug("tfile write footer size: %d", write->ctx->size(write->ctx));
   assert(nwrite == sizeof(FILE_MAGIC_NUMBER));
   return nwrite;
 }
@@ -892,7 +892,7 @@ static int tfileReaderLoadHeader(TFileReader* reader) {
     indexError("actual Read: %d, to read: %d, code:0x%x, filename: %s", (int)(nread), (int)sizeof(buf), errno,
                reader->ctx->file.buf);
   } else {
-    indexInfo("actual Read: %d, to read: %d, filename: %s", (int)(nread), (int)sizeof(buf), reader->ctx->file.buf);
+    indexDebug("actual Read: %d, to read: %d, filename: %s", (int)(nread), (int)sizeof(buf), reader->ctx->file.buf);
   }
   // assert(nread == sizeof(buf));
   memcpy(&reader->header, buf, sizeof(buf));

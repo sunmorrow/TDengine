@@ -34,13 +34,9 @@ struct TSDBFILE {
   int64_t   szFile;
 };
 
-struct STsdbFile {
-  int32_t ftype;
-  SDiskID did;
-  int32_t fid;
-  int64_t id;
-  int64_t size;
-  int64_t offset;
+struct STsdbFileWriter {
+  TSDBFILE *pFILE;
+  STsdbFile file;
 };
 
 struct STsdbFileObj {
@@ -233,6 +229,39 @@ _exit:
   return code;
 }
 
+// STsdbFileWriter ==========================================
+int32_t tsdbFileWriterOpen(STsdbFile *pFile, STsdbFileWriter **ppWriter) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  STsdbFileWriter *pWriter = (STsdbFileWriter *)taosMemoryCalloc(1, sizeof(*pWriter));
+  if (NULL == pWriter) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pWriter->file = *pFile;
+
+  // TODO
+
+_exit:
+  if (code) {
+    *ppWriter = NULL;
+    // clear (todo)
+  } else {
+    *ppWriter = pWriter;
+  }
+  return code;
+}
+
+int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
 // STsdbFileObj ==========================================
 static int32_t tsdbNewFileObj(STsdb *pTsdb, STsdbFile *pFile, STsdbFileObj **ppFileObj) {
   int32_t code = 0;
@@ -257,8 +286,14 @@ _exit:
   return code;
 }
 
-static void tsdbFreeFileObj(STsdbFileObj *pFileObj) {
+static void tsdbFreeFileObj(STsdb *pTsdb, STsdbFileObj *pFileObj, int8_t remove) {
   if (pFileObj) {
+    if (remove) {
+      char fName[TSDB_FILENAME_LEN] = {0};
+      tsdbFileName(pTsdb, &pFileObj->file, fName);
+      (void)taosRemoveFile(fName);
+      tsdbDebug("vgId:%d %s, remove file:%s", TD_VID(pTsdb->pVnode), __func__, fName);
+    }
     taosMemoryFree(pFileObj);
   }
 }
@@ -272,14 +307,7 @@ static int32_t tsdbRefFileObj(STsdb *pTsdb, STsdbFileObj *pFileObj) {
 static int32_t tsdbUnrefFileObj(STsdb *pTsdb, STsdbFileObj *pFileObj, int8_t remove) {
   int32_t nRef = atomic_sub_fetch_32(&pFileObj->nRef, 1);
   if (0 == nRef) {
-    if (remove) {
-      char fName[TSDB_FILENAME_LEN] = {0};
-      tsdbFileName(pTsdb, &pFileObj->file, fName);
-      (void)taosRemoveFile(fName);
-      tsdbDebug("vgId:%d %s, remove file:%s", TD_VID(pTsdb->pVnode), __func__, fName);
-    }
-
-    tsdbFreeFileObj(pFileObj);
+    tsdbFreeFileObj(pTsdb, pFileObj, remove);
   }
   return nRef;
 }

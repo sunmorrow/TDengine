@@ -308,12 +308,26 @@ int32_t tGnrtDiskData(SDiskDataBuilder *pBuilder, const SDiskData **ppDiskData, 
 // tsdbFS2.c ==============================================================================================
 typedef struct TSDBFILE        TSDBFILE;
 typedef struct STsdbFile       STsdbFile;
+typedef struct STsdbFileWriter STsdbFileWriter;
 typedef struct STsdbFileObj    STsdbFileObj;
 typedef struct STsdbFileGroup  STsdbFileGroup;
 typedef struct STsdbFileSystem STsdbFileSystem;
+
 /* TSDBFILE */
+struct STsdbFile {
+  int32_t ftype;
+  SDiskID did;
+  int32_t fid;
+  int64_t id;
+  int64_t size;
+  int64_t offset;
+};
 
 /* STsdbFile */
+
+/* STsdbFileWriter */
+int32_t tsdbFileWriterOpen(STsdbFile *pFile, STsdbFileWriter **ppWriter);
+int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter);
 
 /* STsdbFileObj */
 

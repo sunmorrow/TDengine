@@ -29,12 +29,15 @@ typedef struct {
   SArray *aTbDataP;
 
   // time-series data
-  int32_t     fid;
-  TSKEY       minKey;
-  TSKEY       maxKey;
-  SArray     *aSttBlk;
-  SBlockData *aBData[2];
-  int32_t     iTbData;
+  int32_t          fid;
+  TSKEY            minKey;
+  TSKEY            maxKey;
+  STsdbFileWriter *pWriter;
+  SArray          *aSttBlk;
+  SBlockData      *pBData;
+  int32_t          iTbData;
+  SSkmInfo         skmTable;
+  SSkmInfo         skmRow;
   // tomestone data
 } STsdbFlusher;
 
@@ -70,6 +73,33 @@ static void tsdbFlusherClear(STsdbFlusher *pFlusher) {
   }
 }
 
+static int32_t tsdbUpdateSkmInfo(SMeta *pMeta, int64_t suid, int64_t uid, int32_t sver, SSkmInfo *pSkmInfo) {
+  int32_t code = 0;
+
+  if (!TABLE_SAME_SCHEMA(suid, uid, pSkmInfo->suid, pSkmInfo->uid)   // not same schema
+      || (pSkmInfo->pTSchema == NULL)                                // schema not created
+      || (sver > 0 && pSkmInfo->pTSchema->version != sver /*todo*/)  // not same version
+  ) {
+    pSkmInfo->suid = suid;
+    pSkmInfo->uid = uid;
+    if (pSkmInfo->pTSchema) {
+      tTSchemaDestroy(pSkmInfo->pTSchema);
+    }
+    code = metaGetTbTSchemaEx(pMeta, suid, uid, sver, &pSkmInfo->pTSchema);
+  }
+
+_exit:
+  return code;
+}
+
+static int32_t tsdbFlushBlockData(STsdbFlusher *pFlusher) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
 static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKey) {
   int32_t code = 0;
   int32_t lino = 0;
@@ -77,9 +107,21 @@ static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextK
 
   STbData    *pTbData = (STbData *)taosArrayGetP(pFlusher->aTbDataP, pFlusher->iTbData);
   STbDataIter iter = {0};
+  int64_t     nRows = 0;
   TSDBKEY     fromKey = {.version = VERSION_MIN, .ts = pFlusher->minKey};
+  SMeta      *pMeta = pTsdb->pVnode->pMeta;
+
+  code = tsdbUpdateSkmInfo(pMeta, pTbData->suid, pTbData->uid, -1, &pFlusher->skmTable);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
   // check if need to flush the data (todo)
+  if (!TABLE_SAME_SCHEMA(pFlusher->pBData->suid, pFlusher->pBData->uid, pTbData->suid, pTbData->uid)) {
+    code = tsdbFlushBlockData(pFlusher);
+    TSDB_CHECK_CODE(code, lino, _exit);
+    // reset the block data (todo)
+  }
+
+  // init the block data (todo)
 
   tsdbTbDataIterOpen(pTbData, &fromKey, 0, &iter);
   for (;;) {
@@ -92,17 +134,20 @@ static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextK
       break;
     }
 
-    // code = tsdbUpdateRowSchema();
-    // TSDB_CHECK_CODE(code, lino, _exit);
+    nRows++;
 
-    // code = tBlockDataAppendRow();
-    // TSDB_CHECK_CODE(code, lino, _exit);
+    code = tsdbUpdateSkmInfo(pMeta, pTbData->suid, pTbData->uid, TSDBROW_SVERSION(pRow), &pFlusher->skmRow);
+    TSDB_CHECK_CODE(code, lino, _exit);
+
+    code = tBlockDataAppendRow(pFlusher->pBData, pRow, pFlusher->skmRow.pTSchema, pTbData->uid);
+    TSDB_CHECK_CODE(code, lino, _exit);
 
     tsdbTbDataIterNext(&iter);
 
-    // if (BLOCk_DATA_NROWS() >= pFlusher->maxRows) {
-    // flush the block and clear the block data
-    //
+    if (pFlusher->pBData->nRow >= pFlusher->maxRow) {
+      code = tsdbFlushBlockData(pFlusher);
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
   }
 
 _exit:
@@ -110,8 +155,8 @@ _exit:
     tsdbError("vgId:%d %s failed at line %d since %s, fid:%d suid:%" PRId64 " uid:%" PRId64, TD_VID(pTsdb->pVnode),
               __func__, lino, tstrerror(code), pFlusher->fid, pTbData->suid, pTbData->uid);
   } else {
-    tsdbDebug("vgId:%d %s done, fid:%d suid:%" PRId64 " uid:%" PRId64, TD_VID(pTsdb->pVnode), __func__, pFlusher->fid,
-              pTbData->suid, pTbData->uid);
+    tsdbDebug("vgId:%d %s done, fid:%d suid:%" PRId64 " uid:%" PRId64 " nRows:%" PRId64, TD_VID(pTsdb->pVnode),
+              __func__, pFlusher->fid, pTbData->suid, pTbData->uid, nRows);
   }
   return code;
 }
@@ -125,12 +170,16 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   pFlusher->fid = tsdbKeyFid(*nextKey, pFlusher->minutes, pFlusher->precision);
   tsdbFidKeyRange(pFlusher->fid, pFlusher->minutes, pFlusher->precision, &pFlusher->minKey, &pFlusher->maxKey);
 
-  // create/open file to write
-  // 1. get the fid of file group
-  // 2. create a new stt file with pFg->id++
-  // STsdbFileGroup *pFg = NULL;
-  // code = tsdbGetOrCreateFileGroup(pTsdb, pFlusher->fid, &pFg);
-  // TSDB_CHECK_CODE(code, lino, _exit);
+  // create/open file to write (todo)
+  STsdbFileGroup *pFg = NULL;
+  STsdbFile       file = {.ftype = 0,
+                          .did = {0},
+                          .fid = pFlusher->fid,
+                          .id = 0, /*todo*/
+                          .size = 0,
+                          .offset = 0};
+  code = tsdbFileWriterOpen(&file, &pFlusher->pWriter);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
   // loop to commit
   *nextKey = TSKEY_MAX;
@@ -143,7 +192,15 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
     *nextKey = TMIN(*nextKey, nextTbKey);
   }
 
+  // flush remain data
+  if (pFlusher->pBData->nRow > 0) {
+    code = tsdbFlushBlockData(pFlusher);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
   // close file (todo)
+  code = tsdbFileWriterClose(&pFlusher->pWriter);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {
@@ -182,6 +239,7 @@ static int32_t tsdbFlushDelData(STsdbFlusher *pFlusher) {
   STsdb  *pTsdb = pFlusher->pTsdb;
 
   // TODO
+  ASSERT(0);
 
 _exit:
   if (code) {

@@ -29,7 +29,6 @@ typedef struct {
   SArray *aTbDataP;
 
   // time-series data
-  TSKEY      nextKey;
   int32_t    fid;
   TSKEY      minKey;
   TSKEY      maxKey;
@@ -103,7 +102,7 @@ static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextK
 
     // if (BLOCk_DATA_NROWS() >= pFlusher->maxRows) {
     // flush the block and clear the block data
-    // }
+    //
   }
 
 _exit:
@@ -117,26 +116,26 @@ _exit:
   return code;
 }
 
-static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher) {
+static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKey) {
   int32_t code = 0;
   int32_t lino = 0;
   STsdb  *pTsdb = pFlusher->pTsdb;
 
   // prepare by setting state
-  // pFlusher->fid = tsdbKeyFid();
-  // tsdbFidKeyRange(pFlusher->fid, );
-  pFlusher->nextKey = TSKEY_MAX;
+  pFlusher->fid = tsdbKeyFid(*nextKey, pFlusher->minutes, pFlusher->precision);
+  tsdbFidKeyRange(pFlusher->fid, pFlusher->minutes, pFlusher->precision, &pFlusher->minKey, &pFlusher->maxKey);
 
   // create/open file to write (todo)
 
   // loop to commit
+  *nextKey = TSKEY_MAX;
   for (pFlusher->iTbData = 0; pFlusher->iTbData < taosArrayGetSize(pFlusher->aTbDataP); pFlusher->iTbData++) {
-    TSKEY nextKey = TSKEY_MAX;
+    TSKEY nextTbKey;
 
-    code = tsdbFlushTableTimeSeriesData(pFlusher, &nextKey);
+    code = tsdbFlushTableTimeSeriesData(pFlusher, &nextTbKey);
     TSDB_CHECK_CODE(code, lino, _exit);
 
-    pFlusher->nextKey = TMIN(pFlusher->nextKey, nextKey);
+    *nextKey = TMIN(*nextKey, nextTbKey);
   }
 
   // close file (todo)
@@ -157,9 +156,9 @@ static int32_t tsdbFlushTimeSeriesData(STsdbFlusher *pFlusher) {
   STsdb     *pTsdb = pFlusher->pTsdb;
   SMemTable *pMemTable = pTsdb->imem;
 
-  pFlusher->nextKey = pMemTable->minKey;
-  while (pFlusher->nextKey < TSKEY_MAX) {
-    code = tsdbFlushFileTimeSeriesData(pFlusher, &pFlusher->nextKey);
+  TSKEY nextKey = pMemTable->minKey;  // todo: the minkey may be dropped
+  while (nextKey < TSKEY_MAX) {
+    code = tsdbFlushFileTimeSeriesData(pFlusher, &nextKey);
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
@@ -197,7 +196,6 @@ int32_t tsdbFlush(STsdb *pTsdb) {
   SMemTable *pMemTable = pTsdb->mem;
   if (0 == pMemTable->nRow && 0 == pMemTable->nDel) {
     taosThreadRwlockWrlock(&pTsdb->rwLock);
-
     pTsdb->mem = NULL;
     taosThreadRwlockUnlock(&pTsdb->rwLock);
 
@@ -215,11 +213,6 @@ int32_t tsdbFlush(STsdb *pTsdb) {
 
   code = tsdbFlusherInit(pTsdb, &flusher);
   TSDB_CHECK_CODE(code, lino, _exit);
-
-  if (0 == taosArrayGetSize(flusher.aTbDataP)) {
-    // all table are droped
-    goto _exit;
-  }
 
   if (pMemTable->nRow > 0) {
     code = tsdbFlushTimeSeriesData(&flusher);

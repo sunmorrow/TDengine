@@ -666,10 +666,7 @@ SArray *tsdbMemTableGetTbDataArray(SMemTable *pMemTable) {
     STbData *pTbData = pMemTable->aBucket[iBucket];
 
     while (pTbData) {
-      SMetaInfo info;
-      if (0 == metaGetInfo(pMemTable->pTsdb->pVnode->pMeta, pTbData->uid, &info)) {
-        taosArrayPush(aTbDataP, &pTbData);
-      }
+      taosArrayPush(aTbDataP, &pTbData);
       pTbData = pTbData->next;
     }
   }

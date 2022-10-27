@@ -15,7 +15,7 @@
 
 #include "vnd.h"
 
-#define VND_INFO_FNAME "vnode.json"
+#define VND_INFO_FNAME     "vnode.json"
 #define VND_INFO_FNAME_TMP "vnode_tmp.json"
 
 static int  vnodeEncodeInfo(const SVnodeInfo *pInfo, char **ppData);
@@ -107,7 +107,8 @@ int vnodeSaveInfo(const char *dir, const SVnodeInfo *pInfo) {
   // free info binary
   taosMemoryFree(data);
 
-  vInfo("vgId:%d, vnode info is saved, fname:%s replica:%d", pInfo->config.vgId, fname, pInfo->config.syncCfg.replicaNum);
+  vInfo("vgId:%d, vnode info is saved, fname:%s replica:%d", pInfo->config.vgId, fname,
+        pInfo->config.syncCfg.replicaNum);
 
   return 0;
 
@@ -244,8 +245,13 @@ int vnodeCommit(SVnode *pVnode) {
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
+#if 0
   code = tsdbCommit(pVnode->pTsdb);
   TSDB_CHECK_CODE(code, lino, _exit);
+#else
+  code = tsdbFlush(pVnode->pTsdb);
+  TSDB_CHECK_CODE(code, lino, _exit);
+#endif
 
   if (VND_IS_RSMA(pVnode)) {
     code = smaCommit(pVnode->pSma);

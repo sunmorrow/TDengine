@@ -66,9 +66,15 @@ int tsdbOpen(SVnode *pVnode, STsdb **ppTsdb, const char *dir, STsdbKeepCfg *pKee
   }
 
   // open tsdb
+#if 0
   if (tsdbFSOpen(pTsdb, rollback) < 0) {
     goto _err;
   }
+#else
+  if ((terrno = tsdbOpenFileSystem(pTsdb, rollback))) {
+    goto _err;
+  }
+#endif
 
   if (tsdbOpenCache(pTsdb) < 0) {
     goto _err;

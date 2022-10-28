@@ -13,6 +13,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#define TSDB_FTYPE_HEAD 0  // .head
+#define TSDB_FTYPE_DATA 1  // .data
+#define TSDB_FTYPE_SMA  2  // .sma
+#define TSDB_FTYPE_STT  3  // .stt
+#define TSDB_FTYPE_DEL  4  // .del
+#define TSDB_FTYPE_MAX  5
+
 typedef struct TSDBFILE        TSDBFILE;
 typedef struct STsdbFile       STsdbFile;
 typedef struct STsdbFileOp     STsdbFileOp;
@@ -21,7 +28,18 @@ typedef struct STsdbFileObj    STsdbFileObj;
 typedef struct STsdbFileGroup  STsdbFileGroup;
 typedef struct STsdbFileSystem STsdbFileSystem;
 
-/* TSDBFILE */
+// TSDBFILE ======================================================
+struct TSDBFILE {
+  char     *path;
+  int32_t   szPage;
+  int32_t   flags;
+  TdFilePtr pFD;
+  int64_t   pgno;
+  uint8_t  *pBuf;
+  int64_t   szFile;
+};
+
+// STsdbFile ======================================================
 struct STsdbFile {
   int32_t ftype;
   SDiskID did;
@@ -31,23 +49,55 @@ struct STsdbFile {
   int64_t offset;
 };
 
-/* STsdbFile */
 bool tsdbIsSameFile(const STsdbFile *pFile1, const STsdbFile *pFile2);
 
-/* STsdbFileOp */
+// STsdbFileOp ======================================================
+typedef enum {
+  TSDB_FILE_ADD = 0, /* ADD FILE */
+  TSDB_FILE_REMOVE,  /* REMOVE FILE */
+  TSDB_FILE_MOD      /* MODIFY FILE */
+} ETsdbFileOpT;
 struct STsdbFileOp {
-  int32_t   op;
+  ETsdbFileOpT op;
+  STsdbFile    file;
+};
+
+// STsdbFileWriter ======================================================
+struct STsdbFileWriter {
+  TSDBFILE *pFILE;
   STsdbFile file;
 };
 
-/* STsdbFileWriter */
 int32_t tsdbFileWriterOpen(STsdbFile *pFile, STsdbFileWriter **ppWriter);
 int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter);
 
-/* STsdbFileObj */
+// STsdbFileObj ======================================================
+struct STsdbFileObj {
+  volatile int32_t nRef;
+  SRBTreeNode      rbtn;
+  STsdbFile        file;
+};
 
-/* STsdbFileGroup */
+#define RBTN_TO_FILE_OBJ(PNODE) ((STsdbFileObj *)(((uint8_t *)PNODE) - offsetof(STsdbFileObj, rbtn)))
 
-/* STsdbFileSystem */
+// STsdbFileGroup ======================================================
+struct STsdbFileGroup {
+  int32_t       fid;
+  STsdbFileObj *fHead;
+  STsdbFileObj *fData;
+  STsdbFileObj *fSma;
+  SRBTree       fStt;
+  SRBTreeNode   rbtn;
+};
+
+#define RBTN_TO_FILE_GROUP(PNODE) ((STsdbFileGroup *)(((uint8_t *)PNODE) - offsetof(STsdbFileGroup, rbtn)))
+
+// STsdbFileSystem ======================================================
+struct STsdbFileSystem {
+  int64_t       id;
+  STsdbFileObj *fDel;
+  SRBTree       fGroup;  // SArray<STsdbFileGroup>
+};
+
 int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback);
 int32_t tsdbCloseFileSystem(STsdb *pTsdb);

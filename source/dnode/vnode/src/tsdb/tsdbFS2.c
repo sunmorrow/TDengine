@@ -15,55 +15,6 @@
 
 #include "tsdb.h"
 
-typedef volatile int32_t vi32_t;
-
-#define TSDB_FTYPE_HEAD 0  // .head
-#define TSDB_FTYPE_DATA 1  // .data
-#define TSDB_FTYPE_SMA  2  // .sma
-#define TSDB_FTYPE_STT  3  // .stt
-#define TSDB_FTYPE_DEL  4  // .del
-#define TSDB_FTYPE_MAX  5
-
-struct TSDBFILE {
-  char     *path;
-  int32_t   szPage;
-  int32_t   flags;
-  TdFilePtr pFD;
-  int64_t   pgno;
-  uint8_t  *pBuf;
-  int64_t   szFile;
-};
-
-struct STsdbFileWriter {
-  TSDBFILE *pFILE;
-  STsdbFile file;
-};
-
-struct STsdbFileObj {
-  vi32_t      nRef;
-  SRBTreeNode rbtn;
-  STsdbFile   file;
-};
-
-#define RBTN_TO_FILE_OBJ(PNODE) ((STsdbFileObj *)(((uint8_t *)PNODE) - offsetof(STsdbFileObj, rbtn)))
-
-struct STsdbFileGroup {
-  int32_t       fid;
-  STsdbFileObj *fHead;
-  STsdbFileObj *fData;
-  STsdbFileObj *fSma;
-  SRBTree       fStt;
-  SRBTreeNode   rbtn;
-};
-
-#define RBTN_TO_FILE_GROUP(PNODE) ((STsdbFileGroup *)(((uint8_t *)PNODE) - offsetof(STsdbFileGroup, rbtn)))
-
-struct STsdbFileSystem {
-  int64_t       id;
-  STsdbFileObj *fDel;
-  SRBTree       fGroup;  // SArray<STsdbFileGroup>
-};
-
 // TSDBFILE ==========================================
 static int32_t tsdbFWritePage() {
   int32_t code = 0;

@@ -28,17 +28,17 @@ typedef struct STsdbFileSystem STsdbFileSystem;
 
 // TSDBFILE ======================================================
 struct TSDBFILE {
-  char     *path;
+  char     *name;
   int32_t   szPage;
   int32_t   flags;
-  TdFilePtr pFD;
   int64_t   pgno;
   uint8_t  *pBuf;
+  TdFilePtr pFD;
   int64_t   szFile;
 };
 
-int32_t tsdbFOpen(const char *path, int32_t szPage, int32_t flags, TSDBFILE **ppFILE);
-int32_t tsdbFClose(TSDBFILE *pFILE, int8_t flush);
+int32_t tsdbFOpen(const char *fName, int32_t szPage, int32_t flags, TSDBFILE **ppFILE);
+int32_t tsdbFClose(TSDBFILE **ppFILE, int8_t flush);
 int32_t tsdbFWrite(TSDBFILE *pFILE, int64_t loffset, const uint8_t *pBuf, int64_t size);
 int32_t tsdbFRead(TSDBFILE *pFILE, int64_t loffset, uint8_t *pBuf, int64_t size);
 

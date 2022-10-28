@@ -16,81 +16,256 @@
 #include "tsdb.h"
 
 // TSDBFILE ==========================================
-static int32_t tsdbFWritePage() {
+#define TSDB_PAGE_CONTENT_SIZE(PAGE) ((PAGE) - sizeof(TSCKSUM))
+#define TSDB_LOFFSET_TO_OFFSET(LOFFSET, PAGE) \
+  ((LOFFSET) / TSDB_PAGE_CONTENT_SIZE(PAGE) * (PAGE) + (LOFFSET) % TSDB_PAGE_CONTENT_SIZE(PAGE))
+#define TSDB_OFFSET_TO_LOFFSET(OFFSET, PAGE) ((OFFSET) / (PAGE)*TSDB_PAGE_CONTENT_SIZE(PAGE) + (OFFSET) % (PAGE))
+#define TSDB_PAGE_OFFSET(PGNO, PAGE)         (((PGNO)-1) * (PAGE))
+#define TSDB_OFFSET_PGNO(OFFSET, PAGE)       ((OFFSET) / (PAGE) + 1)
+
+static int32_t tsdbFWritePage(TSDBFILE *pFILE) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  if (pFILE->pgno <= 0) return code;
+
+  int64_t n = taosLSeekFile(pFILE->pFD, TSDB_PAGE_OFFSET(pFILE->pgno, pFILE->szPage), SEEK_SET);
+  if (n < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  taosCalcChecksumAppend(0, pFILE->pBuf, pFILE->szPage);
+
+  n = taosWriteFile(pFILE->pFD, pFILE->pBuf, pFILE->szPage);
+  if (n < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  if (pFILE->szFile < pFILE->pgno) {
+    pFILE->szFile = pFILE->pgno;
+  }
+
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s, fName:%s pgno:%" PRId64 " szPage:%d", __func__, lino, tstrerror(code),
+              pFILE->name, pFILE->pgno, pFILE->szPage);
+  } else {
+    tsdbTrace("%s done, fName:%s pgno:%" PRId64 " szPage:%d", __func__, pFILE->name, pFILE->pgno, pFILE->szPage);
+    pFILE->pgno = 0;
+  }
   return code;
 }
 
-static int32_t tsdbFReadPage() {
+static int32_t tsdbFReadPage(TSDBFILE *pFILE, int64_t pgno) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  ASSERT(pgno > 0 && pgno <= pFILE->szFile);
+
+  // seek
+  int64_t n = taosLSeekFile(pFILE->pFD, TSDB_PAGE_OFFSET(pgno, pFILE->szPage), SEEK_SET);
+  if (n < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  // read
+  n = taosReadFile(pFILE->pFD, pFILE->pBuf, pFILE->szPage);
+  if (n < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  } else if (n < pFILE->szPage) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  // check
+  if (pgno > 1 && !taosCheckChecksumWhole(pFILE->pBuf, pFILE->szPage)) {
+    code = TSDB_CODE_FILE_CORRUPTED;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pFILE->pgno = pgno;
+
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s, fName:%s pgno:%" PRId64 " szPage:%d", __func__, lino, tstrerror(code),
+              pFILE->name, pgno, pFILE->szPage);
+  } else {
+    tsdbTrace("%s done, fName:%s pgno:%" PRId64 " szPage:%d", __func__, pFILE->name, pgno, pFILE->szPage);
+  }
   return code;
 }
 
-int32_t tsdbFOpen(const char *path, int32_t szPage, int32_t flags, TSDBFILE **ppFILE) {
+int32_t tsdbFOpen(const char *fName, int32_t szPage, int32_t flags, TSDBFILE **ppFILE) {
   int32_t code = 0;
   int32_t lino = 0;
 
-  TSDBFILE *pFILE = (TSDBFILE *)taosMemoryCalloc(1, sizeof(*pFILE) + strlen(path) + 1);
+  TSDBFILE *pFILE = (TSDBFILE *)taosMemoryCalloc(1, sizeof(*pFILE) + strlen(fName) + 1);
   if (NULL == pFILE) {
     code = TSDB_CODE_OUT_OF_MEMORY;
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
-  pFILE->path = (char *)&pFILE[1];
-  strcpy(pFILE->path, path);
+  pFILE->name = (char *)&pFILE[1];
+  strcpy(pFILE->name, fName);
   pFILE->szPage = szPage;
   pFILE->flags = flags;
   pFILE->pgno = 0;
+
   pFILE->pBuf = taosMemoryMalloc(szPage);
   if (NULL == pFILE->pBuf) {
     code = TSDB_CODE_OUT_OF_MEMORY;
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
-  // TODO
+  pFILE->pFD = taosOpenFile(fName, flags);
+  if (NULL == pFILE->pFD) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  if (taosStatFile(fName, &pFILE->szFile, NULL) < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  ASSERT(pFILE->szFile % szPage == 0);
+  pFILE->szFile = pFILE->szFile / szPage;
+
 _exit:
   if (code) {
-    *ppFILE = NULL;
-    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
-
     if (pFILE) {
-      // todo
-      if (pFILE->pBuf) taosMemoryFree(pFILE->pBuf);
+      if (pFILE->pFD) {
+        taosCloseFile(&pFILE->pFD);
+      }
+      if (pFILE->pBuf) {
+        taosMemoryFree(pFILE->pBuf);
+      }
       taosMemoryFree(pFILE);
     }
+
+    *ppFILE = NULL;
+    tsdbError("%s failed at line %d since %s, fName:%s", __func__, lino, tstrerror(code), fName);
   } else {
     *ppFILE = pFILE;
+    tsdbTrace("%s done, fName:%s flags:%d", __func__, fName, flags);
   }
   return code;
 }
 
-int32_t tsdbFClose(TSDBFILE *pFILE, int8_t flush) {
+int32_t tsdbFClose(TSDBFILE **ppFILE, int8_t flush) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  TSDBFILE *pFILE = *ppFILE;
+
+  if (NULL == pFILE) {
+    return code;
+  }
+
+  if (flush) {
+    code = tsdbFWritePage(pFILE);
+    TSDB_CHECK_CODE(code, lino, _exit);
+
+    if (taosFsyncFile(pFILE->pFD) < 0) {
+      code = TAOS_SYSTEM_ERROR(errno);
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+  }
+
+  taosCloseFile(&pFILE->pFD);
+
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s, fName:%s szPage:%d", __func__, lino, tstrerror(code), pFILE->name,
+              pFILE->szPage);
+  } else {
+    tsdbTrace("%s done, fName:%s", __func__, pFILE->name);
+  }
+  taosMemoryFree(pFILE->pBuf);
+  taosMemoryFree(pFILE);
+  *ppFILE = NULL;
   return code;
 }
 
 int32_t tsdbFWrite(TSDBFILE *pFILE, int64_t loffset, const uint8_t *pBuf, int64_t size) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  int64_t offset = TSDB_LOFFSET_TO_OFFSET(loffset, pFILE->szPage);
+  int64_t pgno = TSDB_OFFSET_PGNO(offset, pFILE->szPage);
+  int64_t bOffset = offset % pFILE->szPage;
+  int64_t n = 0;
+  do {
+    if (pFILE->pgno != pgno) {
+      code = tsdbFWritePage(pFILE);
+      TSDB_CHECK_CODE(code, lino, _exit);
+
+      if (pgno <= pFILE->szFile) {
+        code = tsdbFReadPage(pFILE, pgno);
+        TSDB_CHECK_CODE(code, lino, _exit);
+      } else {
+        pFILE->pgno = pgno;
+      }
+    }
+
+    int64_t nWrite = TMIN(TSDB_PAGE_CONTENT_SIZE(pFILE->szPage) - bOffset, size - n);
+    memcpy(pFILE->pBuf + bOffset, pBuf + n, nWrite);
+
+    pgno++;
+    bOffset = 0;
+    n += nWrite;
+  } while (n < size);
+
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s, fName:%s szPage:%d loffset:%" PRId64 " size:%" PRId64, __func__, lino,
+              tstrerror(code), pFILE->name, pFILE->szPage, loffset, size);
+  } else {
+    tsdbTrace("%s done, fName:%s szPage:%d loffset:%" PRId64 " size:%" PRId64, __func__, pFILE->name, pFILE->szPage,
+              loffset, size);
+  }
   return code;
 }
 
 int32_t tsdbFRead(TSDBFILE *pFILE, int64_t loffset, uint8_t *pBuf, int64_t size) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  int64_t n = 0;
+  int64_t fOffset = TSDB_LOFFSET_TO_OFFSET(loffset, pFILE->szPage);
+  int64_t pgno = TSDB_OFFSET_PGNO(fOffset, pFILE->szPage);
+  int32_t szPgCont = TSDB_PAGE_CONTENT_SIZE(pFILE->szPage);
+  int64_t bOffset = fOffset % pFILE->szPage;
+
+  ASSERT(pgno && pgno <= pFILE->szFile);
+  ASSERT(bOffset < szPgCont);
+
+  while (n < size) {
+    if (pFILE->pgno != pgno) {
+      code = tsdbFReadPage(pFILE, pgno);
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+
+    int64_t nRead = TMIN(szPgCont - bOffset, size - n);
+    memcpy(pBuf + n, pFILE->pBuf + bOffset, nRead);
+
+    n += nRead;
+    pgno++;
+    bOffset = 0;
+  }
+
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s, fName:%s szPage:%d loffset%" PRId64 " size:%" PRId64, __func__, lino,
+              tstrerror(code), pFILE->name, pFILE->szPage, loffset, size);
+  } else {
+    tsdbTrace("%s done, fName:%s szPage:%d loffset%" PRId64 " size:%" PRId64, __func__, pFILE->name, pFILE->szPage,
+              loffset, size);
+  }
   return code;
 }
 
@@ -264,7 +439,7 @@ int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter, int8_t flush) {
   STsdbFileWriter *pWriter = *ppWriter;
   if (pWriter) {
     if (pWriter->pFILE) {
-      tsdbFClose(pWriter->pFILE, flush);
+      tsdbFClose(&pWriter->pFILE, flush);
     }
     taosMemoryFree(pWriter);
     *ppWriter = NULL;

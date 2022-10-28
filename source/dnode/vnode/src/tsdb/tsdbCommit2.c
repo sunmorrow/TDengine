@@ -27,6 +27,7 @@ typedef struct {
   int8_t  sttTrigger;
 
   SArray *aTbDataP;
+  SArray *aTsdbFileOp;
 
   // time-series data
   int32_t          fid;
@@ -171,15 +172,16 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   tsdbFidKeyRange(pFlusher->fid, pFlusher->minutes, pFlusher->precision, &pFlusher->minKey, &pFlusher->maxKey);
 
   // create/open file to write (todo)
-  STsdbFileGroup *pFg = NULL;
-  STsdbFile       file = {.ftype = 0,
-                          .did = {0},
-                          .fid = pFlusher->fid,
-                          .id = 0, /*todo*/
-                          .size = 0,
-                          .offset = 0};
-  code = tsdbFileWriterOpen(&file, &pFlusher->pWriter);
-  TSDB_CHECK_CODE(code, lino, _exit);
+  // STsdbFileOp fop = {.op = TSDB_FILE_ADD, .file = {.ftype = TSDB_FTYPE_STT, .did = {0}, .fid = pFlusher->fid}};
+  // STsdbFileGroup *pFg = NULL;
+  // STsdbFile       file = {.ftype = 0,
+  //                         .did = {0},
+  //                         .fid = pFlusher->fid,
+  //                         .id = 0, /*todo*/
+  //                         .size = 0,
+  //                         .offset = 0};
+  // code = tsdbFileWriterOpen(&file, &pFlusher->pWriter);
+  // TSDB_CHECK_CODE(code, lino, _exit);
 
   // loop to commit
   *nextKey = TSKEY_MAX;

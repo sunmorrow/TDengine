@@ -229,6 +229,26 @@ _exit:
   return code;
 }
 
+bool tsdbIsSameFile(const STsdbFile *pFile1, const STsdbFile *pFile2) {
+  if (pFile1->ftype != pFile2->ftype) {
+    return false;
+  }
+
+  if ((pFile1->did.level != pFile2->did.level) || (pFile1->did.id != pFile2->did.id)) {
+    return false;
+  }
+
+  if (pFile1->fid != pFile2->fid) {
+    return false;
+  }
+
+  if (pFile1->id != pFile2->id) {
+    return false;
+  }
+
+  return true;
+}
+
 // STsdbFileWriter ==========================================
 int32_t tsdbFileWriterOpen(STsdbFile *pFile, STsdbFileWriter **ppWriter) {
   int32_t code = 0;

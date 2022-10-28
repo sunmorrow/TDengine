@@ -6,8 +6,6 @@
  * or later ("AGPL"), as published by the Free Software Foundation.
  *
  * This program is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.
  *
  * You should have received a copy of the GNU Affero General Public License
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
@@ -39,6 +37,11 @@ struct TSDBFILE {
   int64_t   szFile;
 };
 
+int32_t tsdbFOpen(const char *path, int32_t szPage, int32_t flags, TSDBFILE **ppFILE);
+int32_t tsdbFClose(TSDBFILE *pFILE, int8_t flush);
+int32_t tsdbFWrite(TSDBFILE *pFILE, int64_t loffset, const uint8_t *pBuf, int64_t size);
+int32_t tsdbFRead(TSDBFILE *pFILE, int64_t loffset, uint8_t *pBuf, int64_t size);
+
 // STsdbFile ======================================================
 struct STsdbFile {
   int32_t ftype;
@@ -53,23 +56,27 @@ bool tsdbIsSameFile(const STsdbFile *pFile1, const STsdbFile *pFile2);
 
 // STsdbFileOp ======================================================
 typedef enum {
-  TSDB_FILE_ADD = 0, /* ADD FILE */
-  TSDB_FILE_REMOVE,  /* REMOVE FILE */
-  TSDB_FILE_MOD      /* MODIFY FILE */
+  TSDB_FOP_ADD = 0, /* ADD FILE */
+  TSDB_FOP_REMOVE,  /* REMOVE FILE */
+  TSDB_FOP_MOD      /* MODIFY FILE */
 } ETsdbFileOpT;
+
 struct STsdbFileOp {
   ETsdbFileOpT op;
   STsdbFile    file;
 };
 
+int32_t tsdbFileOpCreate(ETsdbFileOpT op, const STsdbFile *pFile, STsdbFileOp **ppFileOp);
+void    tsdbFileOpDestroy(STsdbFileOp **ppFileOp);
+
 // STsdbFileWriter ======================================================
 struct STsdbFileWriter {
-  TSDBFILE *pFILE;
-  STsdbFile file;
+  STsdbFile *pf;
+  TSDBFILE  *pFILE;
 };
 
-int32_t tsdbFileWriterOpen(STsdbFile *pFile, STsdbFileWriter **ppWriter);
-int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter);
+int32_t tsdbFileWriterOpen(STsdb *pTsdb, STsdbFile *pFile, STsdbFileWriter **ppWriter);
+int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter, int8_t flush);
 
 // STsdbFileObj ======================================================
 struct STsdbFileObj {
@@ -101,3 +108,4 @@ struct STsdbFileSystem {
 
 int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback);
 int32_t tsdbCloseFileSystem(STsdb *pTsdb);
+int32_t tsdbDoFileOps(STsdbFileSystem *pFileSystem, SArray *aFileOp);

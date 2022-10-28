@@ -70,7 +70,7 @@ _exit:
   return code;
 }
 
-int32_t tsdbFClose(TSDBFILE *pFILE) {
+int32_t tsdbFClose(TSDBFILE *pFILE, int8_t flush) {
   int32_t code = 0;
   int32_t lino = 0;
   // TODO
@@ -87,14 +87,6 @@ _exit:
 }
 
 int32_t tsdbFRead(TSDBFILE *pFILE, int64_t loffset, uint8_t *pBuf, int64_t size) {
-  int32_t code = 0;
-  int32_t lino = 0;
-  // TODO
-_exit:
-  return code;
-}
-
-int32_t tsdbFFlush(TSDBFILE *pFILE) {
   int32_t code = 0;
   int32_t lino = 0;
   // TODO
@@ -200,8 +192,41 @@ bool tsdbIsSameFile(const STsdbFile *pFile1, const STsdbFile *pFile2) {
   return true;
 }
 
+// STsdbFileOp ==========================================
+int32_t tsdbFileOpCreate(ETsdbFileOpT op, const STsdbFile *pFile, STsdbFileOp **ppFileOp) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  STsdbFileOp *pFileOp = (STsdbFileOp *)taosMemoryCalloc(1, sizeof(*pFileOp));
+  if (NULL == pFileOp) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pFileOp->op = op;
+  pFileOp->file = *pFile;
+
+_exit:
+  if (code) {
+    *ppFileOp = NULL;
+    tsdbFileOpDestroy(&pFileOp);
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+  } else {
+    *ppFileOp = pFileOp;
+  }
+  return code;
+}
+
+void tsdbFileOpDestroy(STsdbFileOp **ppFileOp) {
+  STsdbFileOp *pFileOp = *ppFileOp;
+  if (pFileOp) {
+    taosMemoryFree(pFileOp);
+    *ppFileOp = NULL;
+  }
+}
+
 // STsdbFileWriter ==========================================
-int32_t tsdbFileWriterOpen(STsdbFile *pFile, STsdbFileWriter **ppWriter) {
+int32_t tsdbFileWriterOpen(STsdb *pTsdb, STsdbFile *pFile, STsdbFileWriter **ppWriter) {
   int32_t code = 0;
   int32_t lino = 0;
 
@@ -211,24 +236,40 @@ int32_t tsdbFileWriterOpen(STsdbFile *pFile, STsdbFileWriter **ppWriter) {
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
-  pWriter->file = *pFile;
+  pWriter->pf = pFile;
 
-  // TODO
+  char fName[TSDB_FILENAME_LEN] = {0};
+  tsdbFileName(pTsdb, pFile, fName);
+
+  int32_t flags = TD_FILE_CREATE | TD_FILE_READ | TD_FILE_WRITE;  // todo
+
+  code = tsdbFOpen(fName, pTsdb->pVnode->config.szPage /*todo*/, flags, &pWriter->pFILE);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {
     *ppWriter = NULL;
-    // clear (todo)
+    // tsdbError();
   } else {
     *ppWriter = pWriter;
+    // tdbDebug();
   }
   return code;
 }
 
-int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter) {
+int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter, int8_t flush) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  STsdbFileWriter *pWriter = *ppWriter;
+  if (pWriter) {
+    if (pWriter->pFILE) {
+      tsdbFClose(pWriter->pFILE, flush);
+    }
+    taosMemoryFree(pWriter);
+    *ppWriter = NULL;
+  }
+
 _exit:
   return code;
 }
@@ -491,6 +532,24 @@ _exit:
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
   } else {
     tsdbDebug("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
+  }
+  return code;
+}
+
+int32_t tsdbDoFileOps(STsdbFileSystem *pFileSystem, SArray *aFileOp) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  for (int32_t iOp = 0; iOp < taosArrayGetSize(aFileOp); iOp++) {
+    STsdbFileOp *pFileOp = (STsdbFileOp *)taosArrayGet(aFileOp, iOp);
+    // todo
+  }
+
+  // todo
+
+_exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
   }
   return code;
 }

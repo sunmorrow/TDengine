@@ -27,7 +27,7 @@ typedef struct {
   int8_t  sttTrigger;
 
   SArray *aTbDataP;
-  SArray *aTsdbFileOp;
+  SArray *aFileOpP;  // SArray<STsdbFileOp *>
 
   // time-series data
   int32_t          fid;
@@ -54,8 +54,15 @@ static int32_t tsdbFlusherInit(STsdb *pTsdb, STsdbFlusher *pFlusher) {
   pFlusher->maxRow = pVnode->config.tsdbCfg.maxRows;
   pFlusher->cmprAlg = pVnode->config.tsdbCfg.compression;
   pFlusher->sttTrigger = pVnode->config.sttTrigger;
+
   pFlusher->aTbDataP = tsdbMemTableGetTbDataArray(pTsdb->imem);
   if (NULL == pFlusher->aTbDataP) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pFlusher->aFileOpP = taosArrayInit(0, sizeof(STsdbFileOp *));
+  if (NULL == pFlusher->aFileOpP) {
     code = TSDB_CODE_OUT_OF_MEMORY;
     TSDB_CHECK_CODE(code, lino, _exit);
   }
@@ -68,6 +75,11 @@ _exit:
 }
 
 static void tsdbFlusherClear(STsdbFlusher *pFlusher) {
+  if (pFlusher->aFileOpP) {
+    taosArrayDestroyEx(pFlusher->aFileOpP, (FDelete)tsdbFileOpDestroy);
+    pFlusher->aFileOpP = NULL;
+  }
+
   if (pFlusher->aTbDataP) {
     taosArrayDestroy(pFlusher->aTbDataP);
     pFlusher->aTbDataP = NULL;
@@ -171,19 +183,26 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   pFlusher->fid = tsdbKeyFid(*nextKey, pFlusher->minutes, pFlusher->precision);
   tsdbFidKeyRange(pFlusher->fid, pFlusher->minutes, pFlusher->precision, &pFlusher->minKey, &pFlusher->maxKey);
 
-  // create/open file to write (todo)
-  // STsdbFileOp fop = {.op = TSDB_FILE_ADD, .file = {.ftype = TSDB_FTYPE_STT, .did = {0}, .fid = pFlusher->fid}};
-  // STsdbFileGroup *pFg = NULL;
-  // STsdbFile       file = {.ftype = 0,
-  //                         .did = {0},
-  //                         .fid = pFlusher->fid,
-  //                         .id = 0, /*todo*/
-  //                         .size = 0,
-  //                         .offset = 0};
-  // code = tsdbFileWriterOpen(&file, &pFlusher->pWriter);
-  // TSDB_CHECK_CODE(code, lino, _exit);
+  // create/open file to write
+  STsdbFileOp *pFileOp = NULL;
+  STsdbFile    file = {
+         .ftype = TSDB_FTYPE_STT,  //
+         .did = {0},               // todo
+         .fid = pFlusher->fid,     //
+         .id = 0,                  // todo
+  };
+  code = tsdbFileOpCreate(TSDB_FOP_ADD, &file, &pFileOp);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
-  // loop to commit
+  if (NULL == taosArrayPush(pFlusher->aFileOpP, &pFileOp)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  code = tsdbFileWriterOpen(pTsdb, &pFileOp->file, &pFlusher->pWriter);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  // loop to flush table time-series data
   *nextKey = TSKEY_MAX;
   for (pFlusher->iTbData = 0; pFlusher->iTbData < taosArrayGetSize(pFlusher->aTbDataP); pFlusher->iTbData++) {
     TSKEY nextTbKey;
@@ -200,14 +219,17 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
-  // close file (todo)
-  code = tsdbFileWriterClose(&pFlusher->pWriter);
+  // close filas
+  code = tsdbFileWriterClose(&pFlusher->pWriter, 1);
   TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {
     tsdbError("vgId:%d %s failed at line %d since %s, fid:%d", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code),
               pFlusher->fid);
+    {
+      // TODO: do some clear or rollback
+    }
   } else {
     tsdbDebug("vgId:%d %s done, fid:%d", TD_VID(pTsdb->pVnode), __func__, pFlusher->fid);
   }

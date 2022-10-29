@@ -671,8 +671,6 @@ int32_t tqProcessPollReq(STQ* pTq, SRpcMsg* pMsg) {
         if (tqTaosxScanLog(pTq, pHandle, pCont, &taosxRsp) < 0) {
           /*ASSERT(0);*/
         }
-        // TODO batch optimization:
-        // TODO continue scan until meeting batch requirement
         if (taosxRsp.blockNum > 0 /* threshold */) {
           tqOffsetResetToLog(&taosxRsp.rspOffset, fetchVer);
           if (tqSendTaosxRsp(pTq, pMsg, pReq, &taosxRsp) < 0) {
@@ -1274,7 +1272,6 @@ int32_t tqProcessSubmitReq(STQ* pTq, SSubmitReq* pReq, int64_t ver) {
 }
 
 int32_t tqProcessTaskRunReq(STQ* pTq, SRpcMsg* pMsg) {
-  //
   SStreamTaskRunReq* pReq = pMsg->pCont;
   int32_t            taskId = pReq->taskId;
   SStreamTask*       pTask = streamMetaGetTask(pTq->pStreamMeta, taskId);
@@ -1287,7 +1284,6 @@ int32_t tqProcessTaskRunReq(STQ* pTq, SRpcMsg* pMsg) {
 }
 
 int32_t tqProcessTaskDispatchReq(STQ* pTq, SRpcMsg* pMsg, bool exec) {
-  ASSERT(0);
   char*              msgStr = pMsg->pCont;
   char*              msgBody = POINTER_SHIFT(msgStr, sizeof(SMsgHead));
   int32_t            msgLen = pMsg->contLen - sizeof(SMsgHead);
@@ -1351,7 +1347,6 @@ int32_t tqProcessTaskDispatchRsp(STQ* pTq, SRpcMsg* pMsg) {
 
 int32_t tqProcessTaskDropReq(STQ* pTq, int64_t version, char* msg, int32_t msgLen) {
   SVDropStreamTaskReq* pReq = (SVDropStreamTaskReq*)msg;
-
   return streamMetaRemoveTask(pTq->pStreamMeta, pReq->taskId);
 }
 

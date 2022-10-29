@@ -55,6 +55,7 @@ enum {
 enum {
   CTG_OP_UPDATE_VGROUP = 0,
   CTG_OP_UPDATE_TB_META,
+  CTG_OP_UPDATE_DB_CFG,
   CTG_OP_DROP_DB_CACHE,
   CTG_OP_DROP_DB_VGROUP,
   CTG_OP_DROP_STB_META,
@@ -189,19 +190,25 @@ typedef struct SCtgVgCache {
   SDBVgInfo* vgInfo;
 } SCtgVgCache;
 
+typedef struct SCtgCfgCache {
+  SRWLatch    cfgLock;
+  SDbCfgInfo* cfgInfo;
+} SCtgCfgCache;
+
 typedef struct SCtgDBCache {
-  SRWLatch    dbLock;  // RC between destroy tbCache/stbCache and all reads
-  uint64_t    dbId;
-  int8_t      deleted;
-  SCtgVgCache vgCache;
-  SHashObj*   tbCache;   // key:tbname, value:SCtgTbCache
-  SHashObj*   stbCache;  // key:suid, value:char*
+  SRWLatch     dbLock;  // RC between destroy tbCache/stbCache and all reads
+  uint64_t     dbId;
+  int8_t       deleted;
+  SCtgVgCache  vgCache;
+  SCtgCfgCache cfgCache;
+  SHashObj*    tbCache;   // key:tbname, value:SCtgTbCache
+  SHashObj*    stbCache;  // key:suid, value:char*
 } SCtgDBCache;
 
 typedef struct SCtgRentSlot {
   SRWLatch lock;
   bool     needSort;
-  SArray*  meta;  // element is SDbVgVersion or SSTableVersion
+  SArray*  meta;  // element is SDbCacheVersion or SSTableVersion
 } SCtgRentSlot;
 
 typedef struct SCtgRentMgmt {
@@ -381,6 +388,13 @@ typedef struct SCtgUpdateVgMsg {
   uint64_t   dbId;
   SDBVgInfo* dbInfo;
 } SCtgUpdateVgMsg;
+
+typedef struct SCtgUpdateDbCfgMsg {
+  SCatalog*   pCtg;
+  char        dbFName[TSDB_DB_FNAME_LEN];
+  uint64_t    dbId;
+  SDbCfgInfo* dbCfg;
+} SCtgUpdateDbCfgMsg;
 
 typedef struct SCtgUpdateTbMetaMsg {
   SCatalog*         pCtg;
@@ -761,15 +775,16 @@ int32_t ctgGenerateVgList(SCatalog* pCtg, SHashObj* vgHash, SArray** pList);
 void    ctgFreeJob(void* job);
 void    ctgFreeHandleImpl(SCatalog* pCtg);
 void    ctgFreeVgInfo(SDBVgInfo* vgInfo);
+void    ctgFreeCfgInfo(SDbCfgInfo* cfgInfo);
 int32_t ctgGetVgInfoFromHashValue(SCatalog* pCtg, SDBVgInfo* dbInfo, const SName* pTableName, SVgroupInfo* pVgroup);
 int32_t ctgGetVgInfosFromHashValue(SCatalog* pCtg, SCtgTaskReq* tReq, SDBVgInfo* dbInfo, SCtgTbHashsCtx* pCtx,
                                    char* dbFName, SArray* pNames, bool update);
 void    ctgResetTbMetaTask(SCtgTask* pTask);
 void    ctgFreeDbCache(SCtgDBCache* dbCache);
 int32_t ctgStbVersionSortCompare(const void* key1, const void* key2);
-int32_t ctgDbVgVersionSortCompare(const void* key1, const void* key2);
+int32_t ctgDbCacheSortCompare(const void* key1, const void* key2);
 int32_t ctgStbVersionSearchCompare(const void* key1, const void* key2);
-int32_t ctgDbVgVersionSearchCompare(const void* key1, const void* key2);
+int32_t ctgDbCacheSearchCompare(const void* key1, const void* key2);
 void    ctgFreeSTableMetaOutput(STableMetaOutput* pOutput);
 int32_t ctgUpdateMsgCtx(SCtgMsgCtx* pCtx, int32_t reqType, void* out, char* target);
 int32_t ctgAddMsgCtx(SArray* pCtxs, int32_t reqType, void* out, char* target);

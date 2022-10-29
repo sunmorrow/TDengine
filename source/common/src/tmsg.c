@@ -2762,6 +2762,7 @@ int32_t tSerializeSDbCfgRsp(void *buf, int32_t bufLen, const SDbCfgRsp *pRsp) {
   tEncoderInit(&encoder, buf, bufLen);
 
   if (tStartEncode(&encoder) < 0) return -1;
+  if (tEncodeI32(&encoder, pRsp->cfgVersion) < 0) return -1;
   if (tEncodeI32(&encoder, pRsp->numOfVgroups) < 0) return -1;
   if (tEncodeI32(&encoder, pRsp->numOfStables) < 0) return -1;
   if (tEncodeI32(&encoder, pRsp->buffer) < 0) return -1;
@@ -2802,6 +2803,7 @@ int32_t tDeserializeSDbCfgRsp(void *buf, int32_t bufLen, SDbCfgRsp *pRsp) {
   tDecoderInit(&decoder, buf, bufLen);
 
   if (tStartDecode(&decoder) < 0) return -1;
+  if (tDecodeI32(&decoder, &pRsp->cfgVersion) < 0) return -1;
   if (tDecodeI32(&decoder, &pRsp->numOfVgroups) < 0) return -1;
   if (tDecodeI32(&decoder, &pRsp->numOfStables) < 0) return -1;
   if (tDecodeI32(&decoder, &pRsp->buffer) < 0) return -1;

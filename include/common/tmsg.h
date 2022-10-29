@@ -889,6 +889,7 @@ int32_t tSerializeSVDropTtlTableReq(void* buf, int32_t bufLen, SVDropTtlTableReq
 int32_t tDeserializeSVDropTtlTableReq(void* buf, int32_t bufLen, SVDropTtlTableReq* pReq);
 
 typedef struct {
+  int32_t cfgVersion;
   int32_t numOfVgroups;
   int32_t numOfStables;
   int32_t buffer;

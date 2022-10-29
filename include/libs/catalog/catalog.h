@@ -119,12 +119,13 @@ typedef struct SSTableVersion {
   int32_t  smaVer;
 } SSTableVersion;
 
-typedef struct SDbVgVersion {
+typedef struct SDbCacheVersion {
   char    dbFName[TSDB_DB_FNAME_LEN];
   int64_t dbId;
   int32_t vgVersion;
+  int32_t cfgVersion;
   int32_t numOfTable;  // unit is TSDB_TABLE_NUM_UNIT
-} SDbVgVersion;
+} SDbCacheVersion;
 
 typedef struct STbSVersion {
   char*   tbFName;
@@ -282,7 +283,7 @@ int32_t catalogGetDnodeList(SCatalog* pCatalog, SRequestConnInfo* pConn, SArray*
 
 int32_t catalogGetExpiredSTables(SCatalog* pCatalog, SSTableVersion** stables, uint32_t* num);
 
-int32_t catalogGetExpiredDBs(SCatalog* pCatalog, SDbVgVersion** dbs, uint32_t* num);
+int32_t catalogGetExpiredDBs(SCatalog* pCatalog, SDbCacheVersion** dbs, uint32_t* num);
 
 int32_t catalogGetExpiredUsers(SCatalog* pCtg, SUserAuthVersion** users, uint32_t* num);
 

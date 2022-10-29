@@ -244,6 +244,16 @@ void ctgFreeVgInfo(SDBVgInfo* vgInfo) {
   taosMemoryFreeClear(vgInfo);
 }
 
+void ctgFreeCfgInfo(SDbCfgInfo* cfgInfo) {
+  if (NULL == cfgInfo) {
+    return;
+  }
+
+  taosArrayDestroy(cfgInfo->pRetensions);
+
+  taosMemoryFreeClear(cfgInfo);
+}
+
 void ctgFreeVgInfoCache(SCtgDBCache* dbCache) { ctgFreeVgInfo(dbCache->vgCache.vgInfo); }
 
 void ctgFreeDbCache(SCtgDBCache* dbCache) {
@@ -1022,10 +1032,10 @@ int32_t ctgStbVersionSearchCompare(const void* key1, const void* key2) {
   }
 }
 
-int32_t ctgDbVgVersionSearchCompare(const void* key1, const void* key2) {
-  if (*(int64_t*)key1 < ((SDbVgVersion*)key2)->dbId) {
+int32_t ctgDbCacheSearchCompare(const void* key1, const void* key2) {
+  if (*(int64_t*)key1 < ((SDbCacheVersion*)key2)->dbId) {
     return -1;
-  } else if (*(int64_t*)key1 > ((SDbVgVersion*)key2)->dbId) {
+  } else if (*(int64_t*)key1 > ((SDbCacheVersion*)key2)->dbId) {
     return 1;
   } else {
     return 0;
@@ -1042,10 +1052,10 @@ int32_t ctgStbVersionSortCompare(const void* key1, const void* key2) {
   }
 }
 
-int32_t ctgDbVgVersionSortCompare(const void* key1, const void* key2) {
-  if (((SDbVgVersion*)key1)->dbId < ((SDbVgVersion*)key2)->dbId) {
+int32_t ctgDbCacheSortCompare(const void* key1, const void* key2) {
+  if (((SDbCacheVersion*)key1)->dbId < ((SDbCacheVersion*)key2)->dbId) {
     return -1;
-  } else if (((SDbVgVersion*)key1)->dbId > ((SDbVgVersion*)key2)->dbId) {
+  } else if (((SDbCacheVersion*)key1)->dbId > ((SDbCacheVersion*)key2)->dbId) {
     return 1;
   } else {
     return 0;

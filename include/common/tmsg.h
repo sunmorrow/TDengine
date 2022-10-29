@@ -843,14 +843,16 @@ int32_t tSerializeSUseDbReq(void* buf, int32_t bufLen, SUseDbReq* pReq);
 int32_t tDeserializeSUseDbReq(void* buf, int32_t bufLen, SUseDbReq* pReq);
 
 typedef struct {
-  char    db[TSDB_DB_FNAME_LEN];
-  int64_t uid;
-  int32_t vgVersion;
-  int32_t vgNum;
-  int16_t hashPrefix;
-  int16_t hashSuffix;
-  int8_t  hashMethod;
-  SArray* pVgroupInfos;  // Array of SVgroupInfo
+  char       db[TSDB_DB_FNAME_LEN];
+  int64_t    uid;
+  int32_t    vgVersion;
+  int32_t    vgNum;
+  int32_t    cfgVersion;
+  int16_t    hashPrefix;
+  int16_t    hashSuffix;
+  int8_t     hashMethod;
+  SDbCfgRsp *pCfgRsp;
+  SArray*    pVgroupInfos;  // Array of SVgroupInfo
 } SUseDbRsp;
 
 int32_t tSerializeSUseDbRsp(void* buf, int32_t bufLen, const SUseDbRsp* pRsp);

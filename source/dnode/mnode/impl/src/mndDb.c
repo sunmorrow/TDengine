@@ -822,6 +822,32 @@ _OVER:
   return code;
 }
 
+static void mndBuildDBCfgRsp(SDbCfgRsp *cfgRsp, SDbObj *pDb) {
+  cfgRsp->cfgVersion = pDb->cfgVersion;
+  cfgRsp->numOfVgroups = pDb->cfg.numOfVgroups;
+  cfgRsp->numOfStables = pDb->cfg.numOfStables;
+  cfgRsp->buffer = pDb->cfg.buffer;
+  cfgRsp->cacheSize = pDb->cfg.cacheLastSize;
+  cfgRsp->pageSize = pDb->cfg.pageSize;
+  cfgRsp->pages = pDb->cfg.pages;
+  cfgRsp->daysPerFile = pDb->cfg.daysPerFile;
+  cfgRsp->daysToKeep0 = pDb->cfg.daysToKeep0;
+  cfgRsp->daysToKeep1 = pDb->cfg.daysToKeep1;
+  cfgRsp->daysToKeep2 = pDb->cfg.daysToKeep2;
+  cfgRsp->minRows = pDb->cfg.minRows;
+  cfgRsp->maxRows = pDb->cfg.maxRows;
+  cfgRsp->walFsyncPeriod = pDb->cfg.walFsyncPeriod;
+  cfgRsp->walLevel = pDb->cfg.walLevel;
+  cfgRsp->precision = pDb->cfg.precision;
+  cfgRsp->compression = pDb->cfg.compression;
+  cfgRsp->replications = pDb->cfg.replications;
+  cfgRsp->strict = pDb->cfg.strict;
+  cfgRsp->cacheLast = pDb->cfg.cacheLast;
+  cfgRsp->numOfRetensions = pDb->cfg.numOfRetensions;
+  cfgRsp->pRetensions = pDb->cfg.pRetensions;
+  cfgRsp->schemaless = pDb->cfg.schemaless;
+}
+
 static int32_t mndProcessGetDbCfgReq(SRpcMsg *pReq) {
   SMnode   *pMnode = pReq->info.node;
   int32_t   code = -1;
@@ -840,29 +866,7 @@ static int32_t mndProcessGetDbCfgReq(SRpcMsg *pReq) {
     goto _OVER;
   }
 
-  cfgRsp.cfgVersion = pDb->cfgVersion;
-  cfgRsp.numOfVgroups = pDb->cfg.numOfVgroups;
-  cfgRsp.numOfStables = pDb->cfg.numOfStables;
-  cfgRsp.buffer = pDb->cfg.buffer;
-  cfgRsp.cacheSize = pDb->cfg.cacheLastSize;
-  cfgRsp.pageSize = pDb->cfg.pageSize;
-  cfgRsp.pages = pDb->cfg.pages;
-  cfgRsp.daysPerFile = pDb->cfg.daysPerFile;
-  cfgRsp.daysToKeep0 = pDb->cfg.daysToKeep0;
-  cfgRsp.daysToKeep1 = pDb->cfg.daysToKeep1;
-  cfgRsp.daysToKeep2 = pDb->cfg.daysToKeep2;
-  cfgRsp.minRows = pDb->cfg.minRows;
-  cfgRsp.maxRows = pDb->cfg.maxRows;
-  cfgRsp.walFsyncPeriod = pDb->cfg.walFsyncPeriod;
-  cfgRsp.walLevel = pDb->cfg.walLevel;
-  cfgRsp.precision = pDb->cfg.precision;
-  cfgRsp.compression = pDb->cfg.compression;
-  cfgRsp.replications = pDb->cfg.replications;
-  cfgRsp.strict = pDb->cfg.strict;
-  cfgRsp.cacheLast = pDb->cfg.cacheLast;
-  cfgRsp.numOfRetensions = pDb->cfg.numOfRetensions;
-  cfgRsp.pRetensions = pDb->cfg.pRetensions;
-  cfgRsp.schemaless = pDb->cfg.schemaless;
+  mndBuildDBCfgRsp(&cfgRsp, pDb);
 
   int32_t contLen = tSerializeSDbCfgRsp(NULL, 0, &cfgRsp);
   void   *pRsp = rpcMallocCont(contLen);
@@ -1268,46 +1272,55 @@ int32_t mndValidateDbInfo(SMnode *pMnode, SDbCacheVersion *pDbs, int32_t numOfDb
   }
 
   for (int32_t i = 0; i < numOfDbs; ++i) {
-    SDbCacheVersion *pDbVgVersion = &pDbs[i];
-    pDbVgVersion->dbId = htobe64(pDbVgVersion->dbId);
-    pDbVgVersion->vgVersion = htonl(pDbVgVersion->vgVersion);
-    pDbVgVersion->numOfTable = htonl(pDbVgVersion->numOfTable);
+    SDbCacheVersion *pDbCache = &pDbs[i];
+    pDbCache->dbId = htobe64(pDbCache->dbId);
+    pDbCache->vgVersion = htonl(pDbCache->vgVersion);
+    pDbCache->cfgVersion = htonl(pDbCache->cfgVersion);
+    pDbCache->numOfTable = htonl(pDbCache->numOfTable);
 
     SUseDbRsp usedbRsp = {0};
 
-    SDbObj *pDb = mndAcquireDb(pMnode, pDbVgVersion->dbFName);
+    SDbObj *pDb = mndAcquireDb(pMnode, pDbCache->dbFName);
     if (pDb == NULL) {
-      mTrace("db:%s, no exist", pDbVgVersion->dbFName);
-      memcpy(usedbRsp.db, pDbVgVersion->dbFName, TSDB_DB_FNAME_LEN);
-      usedbRsp.uid = pDbVgVersion->dbId;
+      mTrace("db:%s, no exist", pDbCache->dbFName);
+      memcpy(usedbRsp.db, pDbCache->dbFName, TSDB_DB_FNAME_LEN);
+      usedbRsp.uid = pDbCache->dbId;
       usedbRsp.vgVersion = -1;
+      usedbRsp.cfgVersion = -1;
       taosArrayPush(batchUseRsp.pArray, &usedbRsp);
       continue;
     }
 
     int32_t numOfTable = mndGetDBTableNum(pDb, pMnode);
 
-    if (pDbVgVersion->vgVersion >= pDb->vgVersion && numOfTable == pDbVgVersion->numOfTable) {
-      mInfo("db:%s, version and numOfTable not changed", pDbVgVersion->dbFName);
+    if (pDbCache->vgVersion >= pDb->vgVersion && numOfTable == pDbCache->numOfTable && pDbCache->cfgVersion >= pDb->cfgVersion) {
+      mDebug("db:%s, versions and numOfTable not changed", pDbCache->dbFName);
       mndReleaseDb(pMnode, pDb);
       continue;
     } else {
-      mInfo("db:%s, vgroup version changed from %d to %d", pDbVgVersion->dbFName, pDbVgVersion->vgVersion,
-            pDb->vgVersion);
+      mDebug("db:%s, versions or numOfTable changed, %d->%d, %d->%d, %d->%d", pDbCache->dbFName, 
+            pDbCache->vgVersion, pDb->vgVersion, pDbCache->numOfTable, numOfTable, pDbCache->cfgVersion, pDb->cfgVersion);
     }
 
-    usedbRsp.pVgroupInfos = taosArrayInit(pDb->cfg.numOfVgroups, sizeof(SVgroupInfo));
-    if (usedbRsp.pVgroupInfos == NULL) {
-      mndReleaseDb(pMnode, pDb);
-      mError("db:%s, failed to malloc usedb response", pDb->name);
-      continue;
+    if (pDbCache->vgVersion < pDb->vgVersion || numOfTable != pDbCache->numOfTable) {
+      usedbRsp.pVgroupInfos = taosArrayInit(pDb->cfg.numOfVgroups, sizeof(SVgroupInfo));
+      if (usedbRsp.pVgroupInfos == NULL) {
+        mndReleaseDb(pMnode, pDb);
+        mError("db:%s, failed to malloc usedb response", pDb->name);
+        continue;
+      }
+      mndBuildDBVgroupInfo(pDb, pMnode, usedbRsp.pVgroupInfos);
+      usedbRsp.vgVersion = pDb->vgVersion;
+      usedbRsp.vgNum = (int32_t)taosArrayGetSize(usedbRsp.pVgroupInfos);
     }
 
-    mndBuildDBVgroupInfo(pDb, pMnode, usedbRsp.pVgroupInfos);
+    if (pDbCache->cfgVersion < pDb->cfgVersion) {
+      usedbRsp.cfgVersion = pDb->cfgVersion;
+      mndBuildDBCfgRsp(&usedbRsp->pCfgRsp, pDb);
+    }
+    
     memcpy(usedbRsp.db, pDb->name, TSDB_DB_FNAME_LEN);
     usedbRsp.uid = pDb->uid;
-    usedbRsp.vgVersion = pDb->vgVersion;
-    usedbRsp.vgNum = (int32_t)taosArrayGetSize(usedbRsp.pVgroupInfos);
     usedbRsp.hashMethod = pDb->cfg.hashMethod;
     usedbRsp.hashPrefix = pDb->cfg.hashPrefix;
     usedbRsp.hashSuffix = pDb->cfg.hashSuffix;

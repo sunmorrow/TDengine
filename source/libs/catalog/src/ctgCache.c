@@ -1272,14 +1272,14 @@ int32_t ctgAddNewDBCache(SCatalog *pCtg, const char *dbFName, uint64_t dbId) {
 
   CTG_CACHE_STAT_INC(numOfDb, 1);
 
-  SDbCacheVersion vgVersion = {.dbId = newDBCache.dbId, .vgVersion = -1};
-  tstrncpy(vgVersion.dbFName, dbFName, sizeof(vgVersion.dbFName));
+  SDbCacheVersion cVersion;
+  ctgSetDbCacheVersion(&cVersion, &newDBCache, newDBCache.dbId, dbFName);
 
   ctgDebug("db added to cache, dbFName:%s, dbId:0x%" PRIx64, dbFName, dbId);
 
-  CTG_ERR_RET(ctgMetaRentAdd(&pCtg->dbRent, &vgVersion, dbId, sizeof(SDbCacheVersion)));
+  CTG_ERR_RET(ctgMetaRentAdd(&pCtg->dbRent, &cVersion, dbId, sizeof(SDbCacheVersion)));
 
-  ctgDebug("db added to rent, dbFName:%s, vgVersion:%d, dbId:0x%" PRIx64, dbFName, vgVersion.vgVersion, dbId);
+  ctgDebug("db added to rent, dbFName:%s, vgVersion:%d, dbId:0x%" PRIx64, dbFName, cVersion.vgVersion, dbId);
 
   return TSDB_CODE_SUCCESS;
 
@@ -1586,6 +1586,25 @@ void ctgFreeAllInstance(void) {
   taosHashClear(gCtgMgmt.pCluster);
 }
 
+void ctgSetDbCacheVersion(SDbCacheVersion *cVersion, SCtgDBCache *dbCache, int64_t dbId, char* dbFName) {
+  cVersion->dbId = dbId;
+  tstrncpy(cVersion.dbFName, dbFName, sizeof(cVersion.dbFName));
+
+  if (dbCache->cfgCache.cfgInfo) {
+    cVersion->cfgVersion = dbCache->cfgCache.cfgInfo->cfgVersion;
+  } else {
+    cVersion->cfgVersion = CTG_DEFAULT_INVALID_VERSION;
+  }
+  
+  if (dbCache->vgCache.vgInfo) {
+    cVersion.vgVersion = dbCache->vgCache.vgInfo->vgVersion;
+    cVersion.numOfTable = dbCache->vgCache.vgInfo->numOfTable;
+  } else {
+    cVersion.vgVersion = CTG_DEFAULT_INVALID_VERSION;
+    cVersion.numOfTable = 0;
+  }
+}
+
 int32_t ctgOpUpdateVgroup(SCtgCacheOperation *operation) {
   int32_t          code = 0;
   SCtgUpdateVgMsg *msg = operation->data;
@@ -1604,8 +1623,6 @@ int32_t ctgOpUpdateVgroup(SCtgCacheOperation *operation) {
   }
 
   bool         newAdded = false;
-  SDbCacheVersion vgVersion = {.dbId = msg->dbId, .vgVersion = dbInfo->vgVersion, .numOfTable = dbInfo->numOfTable};
-
   SCtgDBCache *dbCache = NULL;
   CTG_ERR_JRET(ctgGetAddDBCache(msg->pCtg, dbFName, msg->dbId, &dbCache));
   if (NULL == dbCache) {
@@ -1640,14 +1657,14 @@ int32_t ctgOpUpdateVgroup(SCtgCacheOperation *operation) {
   vgCache->vgInfo = dbInfo;
   msg->dbInfo = NULL;
 
-  ctgDebug("db vgInfo updated, dbFName:%s, vgVer:%d, dbId:0x%" PRIx64, dbFName, vgVersion.vgVersion, vgVersion.dbId);
+  ctgDebug("db vgInfo updated, dbFName:%s, vgVer:%d, dbId:0x%" PRIx64, dbFName, dbInfo->vgVersion, msg->dbId);
 
   ctgWUnlockVgInfo(dbCache);
 
-  dbCache = NULL;
+  SDbCacheVersion cVersion;
+  ctgSetDbCacheVersion(&cVersion, dbCache, msg->dbId, msg->dbFName);
 
-  tstrncpy(vgVersion.dbFName, dbFName, sizeof(vgVersion.dbFName));
-  CTG_ERR_JRET(ctgMetaRentUpdate(&msg->pCtg->dbRent, &vgVersion, vgVersion.dbId, sizeof(SDbCacheVersion),
+  CTG_ERR_JRET(ctgMetaRentUpdate(&msg->pCtg->dbRent, &cVersion, cVersion.dbId, sizeof(SDbCacheVersion),
                                  ctgDbCacheSortCompare, ctgDbCacheSearchCompare));
 
 _return:
@@ -1695,15 +1712,8 @@ int32_t ctgOpUpdateDbCfg(SCtgCacheOperation *operation) {
 
   ctgWUnlockCfgInfo(dbCache);
 
-  SDbCacheVersion cVersion = {.dbId = msg->dbId, .cfgVersion = dbCfg->cfgVersion};
-  tstrncpy(cVersion.dbFName, dbFName, sizeof(cVersion.dbFName));
-  if (dbCache->vgCache.vgInfo) {
-    cVersion.vgVersion = dbCache->vgCache.vgInfo->vgVersion;
-    cVersion.numOfTable = dbCache->vgCache.vgInfo->numOfTable;
-  } else {
-    cVersion.vgVersion = CTG_DEFAULT_INVALID_VERSION;
-    cVersion.numOfTable = 0;
-  }
+  SDbCacheVersion cVersion;
+  ctgSetDbCacheVersion(&cVersion, dbCache, msg->dbId, msg->dbFName);
 
   CTG_ERR_JRET(ctgMetaRentUpdate(&msg->pCtg->dbRent, &cVersion, cVersion.dbId, sizeof(SDbCacheVersion),
                                  ctgDbCacheSortCompare, ctgDbCacheSearchCompare));
@@ -2146,6 +2156,12 @@ void ctgFreeCacheOperationData(SCtgCacheOperation *op) {
         taosArrayDestroyEx(msg->pIndex->pIndex, tFreeSTableIndexInfo);
         taosMemoryFreeClear(msg->pIndex);
       }
+      taosMemoryFreeClear(op->data);
+      break;
+    }
+    case CTG_OP_UPDATE_DB_CFG: {
+      SCtgUpdateDbCfgMsg *msg = op->data;
+      ctgFreeCfgInfo(msg->dbCfg);
       taosMemoryFreeClear(op->data);
       break;
     }

@@ -75,6 +75,10 @@ _exit:
 }
 
 static void tsdbFlusherClear(STsdbFlusher *pFlusher) {
+  if (pFlusher->aSttBlk) {
+    taosArrayDestroy(pFlusher->aSttBlk);
+    pFlusher->aSttBlk = NULL;
+  }
   if (pFlusher->aFileOpP) {
     taosArrayDestroyEx(pFlusher->aFileOpP, (FDelete)tsdbFileOpDestroy);
     pFlusher->aFileOpP = NULL;
@@ -182,6 +186,12 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   // prepare and set state (todo)
   pFlusher->fid = tsdbKeyFid(*nextKey, pFlusher->minutes, pFlusher->precision);
   tsdbFidKeyRange(pFlusher->fid, pFlusher->minutes, pFlusher->precision, &pFlusher->minKey, &pFlusher->maxKey);
+  if ((NULL == pFlusher->aSttBlk) && ((pFlusher->aSttBlk = taosArrayInit(0, sizeof(SSttBlk))) == NULL)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  } else {
+    taosArrayClear(pFlusher->aSttBlk);
+  }
 
   // create/open file to write
   STsdbFileOp *pFileOp = NULL;

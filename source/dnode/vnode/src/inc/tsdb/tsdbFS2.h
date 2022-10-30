@@ -71,6 +71,7 @@ void    tsdbFileOpDestroy(STsdbFileOp **ppFileOp);
 
 // STsdbFileWriter ======================================================
 struct STsdbFileWriter {
+  STsdb     *pTsdb;
   STsdbFile *pf;
   TSDBFILE  *pFILE;
 };

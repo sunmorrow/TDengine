@@ -179,7 +179,7 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   int32_t lino = 0;
   STsdb  *pTsdb = pFlusher->pTsdb;
 
-  // prepare
+  // prepare and set state (todo)
   pFlusher->fid = tsdbKeyFid(*nextKey, pFlusher->minutes, pFlusher->precision);
   tsdbFidKeyRange(pFlusher->fid, pFlusher->minutes, pFlusher->precision, &pFlusher->minKey, &pFlusher->maxKey);
 
@@ -228,7 +228,7 @@ _exit:
     tsdbError("vgId:%d %s failed at line %d since %s, fid:%d", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code),
               pFlusher->fid);
     {
-      // TODO: do some clear or rollback
+      // TODO: clear/rollback
     }
   } else {
     tsdbDebug("vgId:%d %s done, fid:%d", TD_VID(pTsdb->pVnode), __func__, pFlusher->fid);

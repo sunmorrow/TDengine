@@ -148,7 +148,7 @@ _exit:
     }
 
     *ppFILE = NULL;
-    tsdbError("%s failed at line %d since %s, fName:%s", __func__, lino, tstrerror(code), fName);
+    tsdbError("%s failed at line %d since %s, fName:%s flags:%d", __func__, lino, tstrerror(code), fName, flags);
   } else {
     *ppFILE = pFILE;
     tsdbTrace("%s done, fName:%s flags:%d", __func__, fName, flags);
@@ -401,6 +401,44 @@ void tsdbFileOpDestroy(STsdbFileOp **ppFileOp) {
 }
 
 // STsdbFileWriter ==========================================
+static int32_t tsdbFileAppend(STsdbFileWriter *pWriter, const uint8_t *pBuf, int64_t size) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  ASSERT(size > 0);
+
+  code = tsdbFWrite(pWriter->pFILE, pWriter->pf->size, pBuf, size);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  pWriter->pf->size += size;
+
+_exit:
+  if (code) {
+  } else {
+  }
+  return code;
+}
+
+static int32_t tsdbFileUpdateHdr(STsdbFileWriter *pWriter) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  uint8_t hdr[TSDB_FHDR_SIZE] = {0};
+
+  // TODO
+
+  code = tsdbFileAppend(pWriter, hdr, TSDB_FHDR_SIZE);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+_exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+  } else {
+    tsdbTrace("%s done", __func__);
+  }
+  return code;
+}
+
 int32_t tsdbFileWriterOpen(STsdb *pTsdb, STsdbFile *pFile, STsdbFileWriter **ppWriter) {
   int32_t code = 0;
   int32_t lino = 0;
@@ -411,23 +449,35 @@ int32_t tsdbFileWriterOpen(STsdb *pTsdb, STsdbFile *pFile, STsdbFileWriter **ppW
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
-  pWriter->pf = pFile;
-
   char fName[TSDB_FILENAME_LEN] = {0};
   tsdbFileName(pTsdb, pFile, fName);
 
-  int32_t flags = TD_FILE_CREATE | TD_FILE_READ | TD_FILE_WRITE;  // todo
+  int32_t flags = TD_FILE_READ | TD_FILE_WRITE;
+  if (0 == pFile->size) {  // need create
+    flags |= (TD_FILE_CREATE | TD_FILE_TRUNC);
+  }
 
-  code = tsdbFOpen(fName, pTsdb->pVnode->config.szPage /*todo*/, flags, &pWriter->pFILE);
+  code = tsdbFOpen(fName, pTsdb->pVnode->config.tsdbPageSize, flags, &pWriter->pFILE);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  pWriter->pTsdb = pTsdb;
+  pWriter->pf = pFile;
+
+  code = tsdbFileUpdateHdr(pWriter);
   TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {
+    if (pWriter) {
+      // TODO
+      tsdbFClose(&pWriter->pFILE, 0);
+      taosMemoryFree(pWriter);
+    }
+
     *ppWriter = NULL;
-    // tsdbError();
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
   } else {
     *ppWriter = pWriter;
-    // tdbDebug();
   }
   return code;
 }

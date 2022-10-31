@@ -546,6 +546,35 @@ _return:
   CTG_RET(code);
 }
 
+int32_t ctgGetDBCfgInfo(SCatalog* pCtg, SRequestConnInfo* pConn, const char* dbFName, SDbCfgInfo* pDbCfg) {
+  bool exists = false;
+  int32_t code = 0;
+  SDbCfgInfo *pNew = NULL;
+  
+  CTG_ERR_RET(ctgReadDBCfgFromCache(pCtg, dbFName, &pNew, &exists));
+  if (exists) {    
+    memcpy(pDbCfg, pNew, sizeof(SDbCfgInfo));
+    taosMemoryFree(pNew);
+    return TSDB_CODE_SUCCESS;
+  }
+
+  SDbCfgRsp *pRsp = taosMemoryCalloc(1, sizeof(SDbCfgRsp));
+  CTG_ERR_JRET(ctgGetDBCfgFromMnode(pCtg, pConn, dbFName, pRsp, NULL));
+
+  CTG_ERR_JRET(ctgCopyCfgInfo(pRsp, &pNew));
+
+  CTG_ERR_JRET(ctgUpdateCfgEnqueue(pCtg, dbFName, pRsp, false));
+
+  memcpy(pDbCfg, pNew, sizeof(SDbCfgInfo));
+  taosMemoryFreeClear(pNew);
+
+_return:
+
+  ctgFreeCfgInfo(pNew);
+
+  CTG_RET(code);
+}
+
 int32_t ctgRemoveTbMeta(SCatalog* pCtg, SName* pTableName) {
   int32_t code = 0;
 
@@ -852,6 +881,24 @@ _return:
 
   CTG_API_LEAVE(code);
 }
+
+int32_t catalogUpdateDBCfgInfo(SCatalog* pCtg, const char* dbFName, SDbCfgRsp* dbInfo) {
+  CTG_API_ENTER();
+
+  int32_t code = 0;
+
+  if (NULL == pCtg || NULL == dbFName || NULL == dbInfo) {
+    ctgFreeCfgRsp(dbInfo);
+    CTG_ERR_JRET(TSDB_CODE_CTG_INVALID_INPUT);
+  }
+
+  code = ctgUpdateCfgEnqueue(pCtg, dbFName, dbInfo, false);
+
+_return:
+
+  CTG_API_LEAVE(code);
+}
+
 
 int32_t catalogRemoveDB(SCatalog* pCtg, const char* dbFName, uint64_t dbId) {
   CTG_API_ENTER();
@@ -1302,7 +1349,7 @@ int32_t catalogGetDBCfg(SCatalog* pCtg, SRequestConnInfo* pConn, const char* dbF
     CTG_API_LEAVE(TSDB_CODE_CTG_INVALID_INPUT);
   }
 
-  CTG_API_LEAVE(ctgGetDBCfgFromMnode(pCtg, pConn, dbFName, pDbCfg, NULL));
+  CTG_API_LEAVE(ctgGetDBCfgInfo(pCtg, pConn, dbFName, pDbCfg));
 }
 
 int32_t catalogGetIndexMeta(SCatalog* pCtg, SRequestConnInfo* pConn, const char* indexName, SIndexInfo* pInfo) {

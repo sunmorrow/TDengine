@@ -842,6 +842,39 @@ typedef struct {
 int32_t tSerializeSUseDbReq(void* buf, int32_t bufLen, SUseDbReq* pReq);
 int32_t tDeserializeSUseDbReq(void* buf, int32_t bufLen, SUseDbReq* pReq);
 
+
+typedef struct {
+  int32_t cfgVersion;
+  int32_t numOfVgroups;
+  int32_t numOfStables;
+  int32_t buffer;
+  int32_t cacheSize;
+  int32_t pageSize;
+  int32_t pages;
+  int32_t daysPerFile;
+  int32_t daysToKeep0;
+  int32_t daysToKeep1;
+  int32_t daysToKeep2;
+  int32_t minRows;
+  int32_t maxRows;
+  int32_t walFsyncPeriod;
+  int8_t  walLevel;
+  int8_t  precision;
+  int8_t  compression;
+  int8_t  replications;
+  int8_t  strict;
+  int8_t  cacheLast;
+  int32_t numOfRetensions;
+  SArray* pRetensions;
+  int8_t  schemaless;
+} SDbCfgInfo;
+
+typedef struct {
+  int64_t    dbId;
+  SDbCfgInfo info;
+} SDbCfgRsp   ;
+
+
 typedef struct {
   char       db[TSDB_DB_FNAME_LEN];
   int64_t    uid;
@@ -890,31 +923,6 @@ typedef struct {
 int32_t tSerializeSVDropTtlTableReq(void* buf, int32_t bufLen, SVDropTtlTableReq* pReq);
 int32_t tDeserializeSVDropTtlTableReq(void* buf, int32_t bufLen, SVDropTtlTableReq* pReq);
 
-typedef struct {
-  int32_t cfgVersion;
-  int32_t numOfVgroups;
-  int32_t numOfStables;
-  int32_t buffer;
-  int32_t cacheSize;
-  int32_t pageSize;
-  int32_t pages;
-  int32_t daysPerFile;
-  int32_t daysToKeep0;
-  int32_t daysToKeep1;
-  int32_t daysToKeep2;
-  int32_t minRows;
-  int32_t maxRows;
-  int32_t walFsyncPeriod;
-  int8_t  walLevel;
-  int8_t  precision;
-  int8_t  compression;
-  int8_t  replications;
-  int8_t  strict;
-  int8_t  cacheLast;
-  int32_t numOfRetensions;
-  SArray* pRetensions;
-  int8_t  schemaless;
-} SDbCfgRsp;
 
 int32_t tSerializeSDbCfgRsp(void* buf, int32_t bufLen, const SDbCfgRsp* pRsp);
 int32_t tDeserializeSDbCfgRsp(void* buf, int32_t bufLen, SDbCfgRsp* pRsp);

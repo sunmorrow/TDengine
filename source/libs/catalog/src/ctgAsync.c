@@ -1449,12 +1449,24 @@ _return:
 int32_t ctgHandleGetDbCfgRsp(SCtgTaskReq* tReq, int32_t reqType, const SDataBuf* pMsg, int32_t rspCode) {
   int32_t   code = 0;
   SCtgTask* pTask = tReq->pTask;
+  SCtgDbCfgCtx* ctx = (SCtgDbCfgCtx*)pTask->taskCtx;
+  SCatalog* pCtg = pTask->pJob->pCtg;
+  SDbCfgInfo *pNew = NULL;
   CTG_ERR_JRET(ctgProcessRspMsg(pTask->msgCtx.out, reqType, pMsg->pData, pMsg->len, rspCode, pTask->msgCtx.target));
 
-  TSWAP(pTask->res, pTask->msgCtx.out);
+  CTG_ERR_JRET(ctgCopyCfgInfo(pTask->msgCtx.out, &pNew));
 
+  CTG_ERR_JRET(ctgUpdateCfgEnqueue(pCtg, ctx->dbFName, pTask->msgCtx.out, false));
+  
+  TSWAP(pTask->res, pNew);
+  pNew = NULL;
+  
 _return:
 
+  ctgFreeCfgInfo(pNew);
+
+  pTask->msgCtx.out = NULL;
+  
   ctgHandleTaskEnd(pTask, code);
 
   CTG_RET(code);
@@ -1965,6 +1977,18 @@ int32_t ctgLaunchGetDbCfgTask(SCtgTask* pTask) {
   SCtgMsgCtx*       pMsgCtx = CTG_GET_TASK_MSGCTX(pTask, -1);
   if (NULL == pMsgCtx->pBatchs) {
     pMsgCtx->pBatchs = pJob->pBatchs;
+  }
+
+  bool exists = false;
+  int32_t code = 0;
+
+  SDbCfgInfo *pNew = NULL;
+  CTG_ERR_RET(ctgReadDBCfgFromCache(pCtg, pCtx->dbFName, &pNew, &exists));
+  if (exists) {
+    pTask->res = pNew;
+
+    CTG_ERR_RET(ctgHandleTaskEnd(pTask, 0));
+    return TSDB_CODE_SUCCESS;
   }
 
   CTG_ERR_RET(ctgGetDBCfgFromMnode(pCtg, pConn, pCtx->dbFName, NULL, pTask));

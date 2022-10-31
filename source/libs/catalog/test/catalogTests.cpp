@@ -630,7 +630,8 @@ void ctgTestRspDBCfg(void *shandle, SEpSet *pEpSet, SRpcMsg *pMsg, SRpcMsg *pRsp
   static int32_t idx = 1;
 
   SDbCfgRsp dbRsp = {0};
-  dbRsp.numOfVgroups = ctgTestVgNum;
+  dbRsp.dbId = ctgTestDbId;
+  dbRsp.info.numOfVgroups = ctgTestVgNum;
   
   int32_t contLen = tSerializeSDbCfgRsp(NULL, 0, &dbRsp);
   void   *pReq = rpcMallocCont(contLen);
@@ -2947,6 +2948,52 @@ TEST(apiTest, catalogGetServerVersion_test) {
 
   catalogDestroy();
 }
+
+TEST(apiTest, catalogUpdateDBCfgInfo_test) {
+  struct SCatalog  *pCtg = NULL;
+  SRequestConnInfo connInfo = {0};  
+  SRequestConnInfo *mockPointer = (SRequestConnInfo *)&connInfo;
+
+  ctgTestInitLogFile();
+
+  memset(ctgTestRspFunc, 0, sizeof(ctgTestRspFunc));
+  ctgTestRspIdx = 0;
+  ctgTestRspFunc[0] = CTGT_RSP_SVRVER;
+
+  ctgTestSetRspByIdx();
+
+  initQueryModuleMsgHandle();
+
+  int32_t code = catalogInit(NULL);
+  ASSERT_EQ(code, 0);
+
+  code = catalogGetHandle(ctgTestClusterId, &pCtg);
+  ASSERT_EQ(code, 0);
+
+  SDbCfgRsp *rsp = (SDbCfgRsp *)taosMemoryCalloc(1, sizeof(SDbCfgRsp));
+  rsp->dbId = ctgTestDbId;
+  rsp->info.cfgVersion = 2;
+  code = catalogUpdateDBCfgInfo(pCtg, ctgTestDbname, rsp);
+  ASSERT_EQ(code, 0);
+  
+  while (true) {
+    uint64_t n = 0;
+    ctgdGetStatNum("runtime.numOfOpDequeue", (void *)&n);
+    if (n != 1) {
+      taosMsleep(50);
+    } else {
+      break;
+    }
+  }
+
+  SDbCfgInfo info = {0};
+  code = catalogGetDBCfg(pCtg, mockPointer, ctgTestDbname, &info);
+  ASSERT_EQ(code, 0);
+  ASSERT_EQ(info.cfgVersion, 2);
+
+  catalogDestroy();
+}
+
 
 
 

@@ -254,6 +254,17 @@ void ctgFreeCfgInfo(SDbCfgInfo* cfgInfo) {
   taosMemoryFreeClear(cfgInfo);
 }
 
+void ctgFreeCfgRsp(SDbCfgRsp* cfgRsp) {
+  if (NULL == cfgRsp) {
+    return;
+  }
+
+  taosArrayDestroy(cfgRsp->info.pRetensions);
+
+  taosMemoryFreeClear(cfgRsp);
+}
+
+
 void ctgFreeVgInfoCache(SCtgDBCache* dbCache) { ctgFreeVgInfo(dbCache->vgCache.vgInfo); }
 
 void ctgFreeDbCache(SCtgDBCache* dbCache) {
@@ -261,6 +272,7 @@ void ctgFreeDbCache(SCtgDBCache* dbCache) {
     return;
   }
 
+  ctgFreeCfgInfo(dbCache->cfgCache.cfgInfo);
   ctgFreeVgInfoCache(dbCache);
   ctgFreeStbMetaCache(dbCache);
   ctgFreeTbCache(dbCache);
@@ -1098,6 +1110,41 @@ int32_t ctgCloneVgInfo(SDBVgInfo* src, SDBVgInfo** dst) {
   return TSDB_CODE_SUCCESS;
 }
 
+int32_t ctgCloneCfgInfo(SDbCfgInfo* src, SDbCfgInfo** dst) {
+  *dst = taosMemoryMalloc(sizeof(SDbCfgInfo));
+  if (NULL == *dst) {
+    qError("malloc %d failed", (int32_t)sizeof(SDbCfgInfo));
+    CTG_ERR_RET(TSDB_CODE_OUT_OF_MEMORY);
+  }
+
+  memcpy(*dst, src, sizeof(SDbCfgInfo));
+
+  size_t rSize = taosArrayGetSize(src->pRetensions);
+  if (rSize <= 0) {
+    (*dst)->pRetensions = NULL;
+    return TSDB_CODE_SUCCESS;
+  }
+  
+  (*dst)->pRetensions = taosArrayInit(rSize, sizeof(SRetention));
+  if (NULL == (*dst)->pRetensions) {
+    qError("taosArrayInit %d failed", (int32_t)rSize);
+    taosMemoryFreeClear(*dst);
+    CTG_ERR_RET(TSDB_CODE_OUT_OF_MEMORY);
+  }
+
+  for (int32_t i = 0; i < rSize; ++i) {
+    SRetention* pRetension = taosArrayGet(src->pRetensions, i);
+    taosArrayPush((*dst)->pRetensions, pRetension);
+  }
+
+  return TSDB_CODE_SUCCESS;
+}
+
+int32_t ctgCopyCfgInfo(SDbCfgRsp* src, SDbCfgInfo** dst) {
+  CTG_RET(ctgCloneCfgInfo(&src->info, dst));
+}
+
+
 int32_t ctgCloneMetaOutput(STableMetaOutput* output, STableMetaOutput** pOutput) {
   *pOutput = taosMemoryMalloc(sizeof(STableMetaOutput));
   if (NULL == *pOutput) {
@@ -1206,7 +1253,11 @@ static void* ctgCloneDbCfgInfo(void* pSrc) {
   return pDst;
 }
 
-static void ctgFreeDbCfgInfo(void* p) { taosMemoryFree(((SMetaRes*)p)->pRes); }
+void ctgFreeDbCfgInfo(void* p) { 
+  if (p) {
+    taosMemoryFree(((SMetaRes*)p)->pRes); 
+  }
+}
 
 static void* ctgCloneDbInfo(void* pSrc) {
   SDbInfo* pDst = taosMemoryMalloc(sizeof(SDbInfo));

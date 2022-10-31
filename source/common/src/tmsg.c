@@ -2465,14 +2465,57 @@ int32_t tDeserializeSCompactDbReq(void *buf, int32_t bufLen, SCompactDbReq *pReq
   return 0;
 }
 
+
+int32_t tEncodeSDbCfgRsp(SEncoder *encoder, const SDbCfgRsp *pRsp) {
+  if (tEncodeI64(encoder, pRsp->dbId) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.cfgVersion) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.numOfVgroups) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.numOfStables) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.buffer) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.cacheSize) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.pageSize) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.pages) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.daysPerFile) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.daysToKeep0) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.daysToKeep1) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.daysToKeep2) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.minRows) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.maxRows) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.walFsyncPeriod) < 0) return -1;
+  if (tEncodeI8(encoder, pRsp->info.walLevel) < 0) return -1;
+  if (tEncodeI8(encoder, pRsp->info.precision) < 0) return -1;
+  if (tEncodeI8(encoder, pRsp->info.compression) < 0) return -1;
+  if (tEncodeI8(encoder, pRsp->info.replications) < 0) return -1;
+  if (tEncodeI8(encoder, pRsp->info.strict) < 0) return -1;
+  if (tEncodeI8(encoder, pRsp->info.cacheLast) < 0) return -1;
+  if (tEncodeI32(encoder, pRsp->info.numOfRetensions) < 0) return -1;
+  for (int32_t i = 0; i < pRsp->info.numOfRetensions; ++i) {
+    SRetention *pRetension = taosArrayGet(pRsp->info.pRetensions, i);
+    if (tEncodeI64(encoder, pRetension->freq) < 0) return -1;
+    if (tEncodeI64(encoder, pRetension->keep) < 0) return -1;
+    if (tEncodeI8(encoder, pRetension->freqUnit) < 0) return -1;
+    if (tEncodeI8(encoder, pRetension->keepUnit) < 0) return -1;
+  }
+  if (tEncodeI8(encoder, pRsp->info.schemaless) < 0) return -1;
+
+  return 0;
+}
+
+
+
 int32_t tSerializeSUseDbRspImp(SEncoder *pEncoder, const SUseDbRsp *pRsp) {
   if (tEncodeCStr(pEncoder, pRsp->db) < 0) return -1;
   if (tEncodeI64(pEncoder, pRsp->uid) < 0) return -1;
   if (tEncodeI32(pEncoder, pRsp->vgVersion) < 0) return -1;
   if (tEncodeI32(pEncoder, pRsp->vgNum) < 0) return -1;
+  if (tEncodeI32(pEncoder, pRsp->cfgVersion) < 0) return -1;
   if (tEncodeI16(pEncoder, pRsp->hashPrefix) < 0) return -1;
   if (tEncodeI16(pEncoder, pRsp->hashSuffix) < 0) return -1;
   if (tEncodeI8(pEncoder, pRsp->hashMethod) < 0) return -1;
+
+  if (pRsp->cfgVersion > 0) {
+    if (tEncodeSDbCfgRsp(pEncoder, pRsp->pCfgRsp) < 0) return -1;
+  }
 
   for (int32_t i = 0; i < pRsp->vgNum; ++i) {
     SVgroupInfo *pVgInfo = taosArrayGet(pRsp->pVgroupInfos, i);
@@ -2518,15 +2561,76 @@ int32_t tSerializeSUseDbBatchRsp(void *buf, int32_t bufLen, SUseDbBatchRsp *pRsp
   return tlen;
 }
 
+
+int32_t tDecodeSDbCfgRsp(SDecoder *decoder, SDbCfgRsp *pRsp) {
+  if (tDecodeI64(decoder, &pRsp->dbId) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.cfgVersion) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.numOfVgroups) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.numOfStables) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.buffer) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.cacheSize) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.pageSize) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.pages) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.daysPerFile) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.daysToKeep0) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.daysToKeep1) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.daysToKeep2) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.minRows) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.maxRows) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.walFsyncPeriod) < 0) return -1;
+  if (tDecodeI8(decoder, &pRsp->info.walLevel) < 0) return -1;
+  if (tDecodeI8(decoder, &pRsp->info.precision) < 0) return -1;
+  if (tDecodeI8(decoder, &pRsp->info.compression) < 0) return -1;
+  if (tDecodeI8(decoder, &pRsp->info.replications) < 0) return -1;
+  if (tDecodeI8(decoder, &pRsp->info.strict) < 0) return -1;
+  if (tDecodeI8(decoder, &pRsp->info.cacheLast) < 0) return -1;
+  if (tDecodeI32(decoder, &pRsp->info.numOfRetensions) < 0) return -1;
+  if (pRsp->info.numOfRetensions > 0) {
+    pRsp->info.pRetensions = taosArrayInit(pRsp->info.numOfRetensions, sizeof(SRetention));
+    if (pRsp->info.pRetensions == NULL) {
+      terrno = TSDB_CODE_OUT_OF_MEMORY;
+      return -1;
+    }
+  }
+
+  for (int32_t i = 0; i < pRsp->info.numOfRetensions; ++i) {
+    SRetention rentension = {0};
+    if (tDecodeI64(decoder, &rentension.freq) < 0) return -1;
+    if (tDecodeI64(decoder, &rentension.keep) < 0) return -1;
+    if (tDecodeI8(decoder, &rentension.freqUnit) < 0) return -1;
+    if (tDecodeI8(decoder, &rentension.keepUnit) < 0) return -1;
+    if (taosArrayPush(pRsp->info.pRetensions, &rentension) == NULL) {
+      terrno = TSDB_CODE_OUT_OF_MEMORY;
+      return -1;
+    }
+  }
+  if (tDecodeI8(decoder, &pRsp->info.schemaless) < 0) return -1;
+
+  return 0;
+}
+
+
+
 int32_t tDeserializeSUseDbRspImp(SDecoder *pDecoder, SUseDbRsp *pRsp) {
   if (tDecodeCStrTo(pDecoder, pRsp->db) < 0) return -1;
   if (tDecodeI64(pDecoder, &pRsp->uid) < 0) return -1;
   if (tDecodeI32(pDecoder, &pRsp->vgVersion) < 0) return -1;
   if (tDecodeI32(pDecoder, &pRsp->vgNum) < 0) return -1;
+  if (tDecodeI32(pDecoder, &pRsp->cfgVersion) < 0) return -1;
   if (tDecodeI16(pDecoder, &pRsp->hashPrefix) < 0) return -1;
   if (tDecodeI16(pDecoder, &pRsp->hashSuffix) < 0) return -1;
   if (tDecodeI8(pDecoder, &pRsp->hashMethod) < 0) return -1;
 
+  if (pRsp->cfgVersion > 0) {
+    pRsp->pCfgRsp = taosMemoryCalloc(1, sizeof(SDbCfgRsp));
+    if (NULL == pRsp->pCfgRsp) {
+      terrno = TSDB_CODE_OUT_OF_MEMORY;
+      return -1;
+    }
+    
+    if (tDecodeSDbCfgRsp(pDecoder, pRsp->pCfgRsp) < 0) return -1;
+  }
+  
   if (pRsp->vgNum <= 0) {
     return 0;
   }
@@ -2762,35 +2866,7 @@ int32_t tSerializeSDbCfgRsp(void *buf, int32_t bufLen, const SDbCfgRsp *pRsp) {
   tEncoderInit(&encoder, buf, bufLen);
 
   if (tStartEncode(&encoder) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->cfgVersion) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->numOfVgroups) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->numOfStables) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->buffer) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->cacheSize) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->pageSize) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->pages) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->daysPerFile) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->daysToKeep0) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->daysToKeep1) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->daysToKeep2) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->minRows) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->maxRows) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->walFsyncPeriod) < 0) return -1;
-  if (tEncodeI8(&encoder, pRsp->walLevel) < 0) return -1;
-  if (tEncodeI8(&encoder, pRsp->precision) < 0) return -1;
-  if (tEncodeI8(&encoder, pRsp->compression) < 0) return -1;
-  if (tEncodeI8(&encoder, pRsp->replications) < 0) return -1;
-  if (tEncodeI8(&encoder, pRsp->strict) < 0) return -1;
-  if (tEncodeI8(&encoder, pRsp->cacheLast) < 0) return -1;
-  if (tEncodeI32(&encoder, pRsp->numOfRetensions) < 0) return -1;
-  for (int32_t i = 0; i < pRsp->numOfRetensions; ++i) {
-    SRetention *pRetension = taosArrayGet(pRsp->pRetensions, i);
-    if (tEncodeI64(&encoder, pRetension->freq) < 0) return -1;
-    if (tEncodeI64(&encoder, pRetension->keep) < 0) return -1;
-    if (tEncodeI8(&encoder, pRetension->freqUnit) < 0) return -1;
-    if (tEncodeI8(&encoder, pRetension->keepUnit) < 0) return -1;
-  }
-  if (tEncodeI8(&encoder, pRsp->schemaless) < 0) return -1;
+  if (tEncodeSDbCfgRsp(&encoder, pRsp) < 0) return -1;
   tEndEncode(&encoder);
 
   int32_t tlen = encoder.pos;
@@ -2803,47 +2879,7 @@ int32_t tDeserializeSDbCfgRsp(void *buf, int32_t bufLen, SDbCfgRsp *pRsp) {
   tDecoderInit(&decoder, buf, bufLen);
 
   if (tStartDecode(&decoder) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->cfgVersion) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->numOfVgroups) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->numOfStables) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->buffer) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->cacheSize) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->pageSize) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->pages) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->daysPerFile) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->daysToKeep0) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->daysToKeep1) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->daysToKeep2) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->minRows) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->maxRows) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->walFsyncPeriod) < 0) return -1;
-  if (tDecodeI8(&decoder, &pRsp->walLevel) < 0) return -1;
-  if (tDecodeI8(&decoder, &pRsp->precision) < 0) return -1;
-  if (tDecodeI8(&decoder, &pRsp->compression) < 0) return -1;
-  if (tDecodeI8(&decoder, &pRsp->replications) < 0) return -1;
-  if (tDecodeI8(&decoder, &pRsp->strict) < 0) return -1;
-  if (tDecodeI8(&decoder, &pRsp->cacheLast) < 0) return -1;
-  if (tDecodeI32(&decoder, &pRsp->numOfRetensions) < 0) return -1;
-  if (pRsp->numOfRetensions > 0) {
-    pRsp->pRetensions = taosArrayInit(pRsp->numOfRetensions, sizeof(SRetention));
-    if (pRsp->pRetensions == NULL) {
-      terrno = TSDB_CODE_OUT_OF_MEMORY;
-      return -1;
-    }
-  }
-
-  for (int32_t i = 0; i < pRsp->numOfRetensions; ++i) {
-    SRetention rentension = {0};
-    if (tDecodeI64(&decoder, &rentension.freq) < 0) return -1;
-    if (tDecodeI64(&decoder, &rentension.keep) < 0) return -1;
-    if (tDecodeI8(&decoder, &rentension.freqUnit) < 0) return -1;
-    if (tDecodeI8(&decoder, &rentension.keepUnit) < 0) return -1;
-    if (taosArrayPush(pRsp->pRetensions, &rentension) == NULL) {
-      terrno = TSDB_CODE_OUT_OF_MEMORY;
-      return -1;
-    }
-  }
-  if (tDecodeI8(&decoder, &pRsp->schemaless) < 0) return -1;
+  if (tDecodeSDbCfgRsp(&decoder, pRsp) < 0) return -1;
   tEndDecode(&decoder);
 
   tDecoderClear(&decoder);

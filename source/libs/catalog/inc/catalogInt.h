@@ -363,6 +363,8 @@ typedef struct SCtgCacheStat {
   uint64_t numOfUser;
   uint64_t numOfVgHit;
   uint64_t numOfVgMiss;
+  uint64_t numOfCfgHit;
+  uint64_t numOfCfgMiss;
   uint64_t numOfMetaHit;
   uint64_t numOfMetaMiss;
   uint64_t numOfIndexHit;
@@ -392,8 +394,7 @@ typedef struct SCtgUpdateVgMsg {
 typedef struct SCtgUpdateDbCfgMsg {
   SCatalog*   pCtg;
   char        dbFName[TSDB_DB_FNAME_LEN];
-  uint64_t    dbId;
-  SDbCfgInfo* dbCfg;
+  SDbCfgRsp*  dbCfg;
 } SCtgUpdateDbCfgMsg;
 
 typedef struct SCtgUpdateTbMetaMsg {
@@ -690,6 +691,7 @@ int32_t ctgGetTbMetasFromCache(SCatalog* pCtg, SRequestConnInfo* pConn, SCtgTbMe
                                int32_t* fetchIdx, int32_t baseResIdx, SArray* pList);
 
 int32_t ctgOpUpdateVgroup(SCtgCacheOperation* action);
+int32_t ctgOpUpdateDbCfg(SCtgCacheOperation *operation);
 int32_t ctgOpUpdateTbMeta(SCtgCacheOperation* action);
 int32_t ctgOpDropDbCache(SCtgCacheOperation* action);
 int32_t ctgOpDropDbVgroup(SCtgCacheOperation* action);
@@ -701,6 +703,7 @@ int32_t ctgAcquireVgInfoFromCache(SCatalog* pCtg, const char* dbFName, SCtgDBCac
 void    ctgReleaseDBCache(SCatalog* pCtg, SCtgDBCache* dbCache);
 void    ctgRUnlockVgInfo(SCtgDBCache* dbCache);
 int32_t ctgTbMetaExistInCache(SCatalog* pCtg, char* dbFName, char* tbName, int32_t* exist);
+int32_t ctgReadDBCfgFromCache(SCatalog *pCtg, const char *dbFName, SDbCfgInfo** pDbCfg, bool *exists);
 int32_t ctgReadTbMetaFromCache(SCatalog* pCtg, SCtgTbMetaCtx* ctx, STableMeta** pTableMeta);
 int32_t ctgReadTbVerFromCache(SCatalog* pCtg, SName* pTableName, int32_t* sver, int32_t* tver, int32_t* tbType,
                               uint64_t* suid, char* stbName);
@@ -712,6 +715,7 @@ int32_t ctgDropStbMetaEnqueue(SCatalog* pCtg, const char* dbFName, int64_t dbId,
 int32_t ctgDropTbMetaEnqueue(SCatalog* pCtg, const char* dbFName, int64_t dbId, const char* tbName, bool syncReq);
 int32_t ctgUpdateVgroupEnqueue(SCatalog* pCtg, const char* dbFName, int64_t dbId, SDBVgInfo* dbInfo, bool syncReq);
 int32_t ctgUpdateTbMetaEnqueue(SCatalog* pCtg, STableMetaOutput* output, bool syncReq);
+int32_t ctgUpdateCfgEnqueue(SCatalog *pCtg, const char *dbFName, SDbCfgRsp *dbInfo, bool syncOp);
 int32_t ctgUpdateUserEnqueue(SCatalog* pCtg, SGetUserAuthRsp* pAuth, bool syncReq);
 int32_t ctgUpdateVgEpsetEnqueue(SCatalog* pCtg, char* dbFName, int32_t vgId, SEpSet* pEpSet);
 int32_t ctgUpdateTbIndexEnqueue(SCatalog* pCtg, STableIndex** pIndex, bool syncOp);
@@ -736,7 +740,7 @@ int32_t ctgGetDBVgInfoFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, SBuildU
                                 SCtgTaskReq* tReq);
 int32_t ctgGetQnodeListFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, SArray* out, SCtgTask* pTask);
 int32_t ctgGetDnodeListFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, SArray** out, SCtgTask* pTask);
-int32_t ctgGetDBCfgFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, const char* dbFName, SDbCfgInfo* out,
+int32_t ctgGetDBCfgFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, const char* dbFName, SDbCfgRsp* out,
                              SCtgTask* pTask);
 int32_t ctgGetIndexInfoFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, const char* indexName, SIndexInfo* out,
                                  SCtgTask* pTask);
@@ -765,17 +769,23 @@ int32_t ctgMakeAsyncRes(SCtgJob* pJob);
 int32_t ctgLaunchSubTask(SCtgTask* pTask, CTG_TASK_TYPE type, ctgSubTaskCbFp fp, void* param);
 int32_t ctgGetTbCfgCb(SCtgTask* pTask);
 void    ctgFreeHandle(SCatalog* pCatalog);
+void    ctgSetDbCacheVersion(SDbCacheVersion *cVersion, SCtgDBCache *dbCache, int64_t dbId, const char* dbFName);
+void    ctgFreeCacheOperationData(SCtgCacheOperation *op);
 
 void    ctgFreeMsgSendParam(void* param);
 void    ctgFreeBatch(SCtgBatch* pBatch);
 void    ctgFreeBatchs(SHashObj* pBatchs);
+void    ctgFreeDbCfgInfo(void* p);
 int32_t ctgCloneVgInfo(SDBVgInfo* src, SDBVgInfo** dst);
+int32_t ctgCloneCfgInfo(SDbCfgInfo* src, SDbCfgInfo** dst);
+int32_t ctgCopyCfgInfo(SDbCfgRsp* src, SDbCfgInfo** dst);
 int32_t ctgCloneMetaOutput(STableMetaOutput* output, STableMetaOutput** pOutput);
 int32_t ctgGenerateVgList(SCatalog* pCtg, SHashObj* vgHash, SArray** pList);
 void    ctgFreeJob(void* job);
 void    ctgFreeHandleImpl(SCatalog* pCtg);
 void    ctgFreeVgInfo(SDBVgInfo* vgInfo);
 void    ctgFreeCfgInfo(SDbCfgInfo* cfgInfo);
+void    ctgFreeCfgRsp(SDbCfgRsp* cfgRsp);
 int32_t ctgGetVgInfoFromHashValue(SCatalog* pCtg, SDBVgInfo* dbInfo, const SName* pTableName, SVgroupInfo* pVgroup);
 int32_t ctgGetVgInfosFromHashValue(SCatalog* pCtg, SCtgTaskReq* tReq, SDBVgInfo* dbInfo, SCtgTbHashsCtx* pCtx,
                                    char* dbFName, SArray* pNames, bool update);

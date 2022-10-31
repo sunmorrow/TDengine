@@ -796,7 +796,7 @@ int32_t ctgGetDBVgInfoFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, SBuildU
   return TSDB_CODE_SUCCESS;
 }
 
-int32_t ctgGetDBCfgFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, const char* dbFName, SDbCfgInfo* out,
+int32_t ctgGetDBCfgFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, const char* dbFName, SDbCfgRsp* out,
                              SCtgTask* pTask) {
   char*   msg = NULL;
   int32_t msgLen = 0;
@@ -812,7 +812,7 @@ int32_t ctgGetDBCfgFromMnode(SCatalog* pCtg, SRequestConnInfo* pConn, const char
   }
 
   if (pTask) {
-    void* pOut = taosMemoryCalloc(1, sizeof(SDbCfgInfo));
+    void* pOut = taosMemoryCalloc(1, sizeof(SDbCfgRsp));
     if (NULL == pOut) {
       CTG_ERR_RET(TSDB_CODE_OUT_OF_MEMORY);
     }

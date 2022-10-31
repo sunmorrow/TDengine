@@ -138,7 +138,6 @@ typedef struct SUserAuthVersion {
   int32_t version;
 } SUserAuthVersion;
 
-typedef SDbCfgRsp     SDbCfgInfo;
 typedef SUserIndexRsp SIndexInfo;
 
 typedef void (*catalogCallback)(SMetaData* pResult, void* param, int32_t code);
@@ -169,6 +168,8 @@ int32_t catalogGetDBVgList(SCatalog* pCatalog, SRequestConnInfo* pConn, const ch
 int32_t catalogGetDBVgInfo(SCatalog* pCtg, SRequestConnInfo* pConn, const char* dbFName, TAOS_DB_ROUTE_INFO* pInfo);
 
 int32_t catalogUpdateDBVgInfo(SCatalog* pCatalog, const char* dbName, uint64_t dbId, SDBVgInfo* dbInfo);
+
+int32_t catalogUpdateDBCfgInfo(SCatalog* pCtg, const char* dbFName, SDbCfgRsp* dbInfo);
 
 int32_t catalogRemoveDB(SCatalog* pCatalog, const char* dbName, uint64_t dbId);
 

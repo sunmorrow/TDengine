@@ -694,10 +694,53 @@ static void tsdbCurrentFileName(STsdb *pTsdb, char current[], char current_t[]) 
 }
 
 static int32_t tsdbSaveFileSystemToFile(STsdb *pTsdb, STsdbFileSystem *pFileSystem, const char *fName) {
-  int32_t code = 0;
-  int32_t lino = 0;
-  // TODO
+  int32_t   code = 0;
+  int32_t   lino = 0;
+  SJson    *pJson = NULL;
+  char     *jsonStr = NULL;
+  TdFilePtr pFD = NULL;
+
+  pJson = tjsonCreateObject();
+  if (NULL == pJson) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  code = tsdbFileSystemToJson(pFileSystem, pJson);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  jsonStr = tjsonToString(pJson);
+  if (NULL == jsonStr) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pFD = taosOpenFile(fName, TD_FILE_READ | TD_FILE_WRITE | TD_FILE_CREATE | TD_FILE_TRUNC);
+  if (NULL == pFD) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  if (taosWriteFile(pFD, jsonStr, strlen(jsonStr)) < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
 _exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  } else {
+    tsdbTrace("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
+  }
+  if (NULL != pFD) {
+    taosCloseFile(&pFD);
+  }
+  if (pJson) {
+    tjsonDelete(pJson);
+  }
+  if (jsonStr) {
+    taosMemoryFree(jsonStr);
+  }
   return code;
 }
 

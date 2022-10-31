@@ -331,10 +331,18 @@ static int32_t tsdbBinaryToFile(uint8_t *p, STsdbFile *pFile) {
   return n;
 }
 
-static int32_t tsdbFileToJson(STsdbFile *pFile) {
+static int32_t tsdbFileToJson(const STsdbFile *pFile, SJson *pJson) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  tjsonAddIntegerToObject(pJson, "type", pFile->ftype);
+  tjsonAddIntegerToObject(pJson, "disk level", pFile->did.level);
+  tjsonAddIntegerToObject(pJson, "disk id", pFile->did.id);
+  tjsonAddIntegerToObject(pJson, "fid", pFile->fid);
+  tjsonAddIntegerToObject(pJson, "id", pFile->id);
+  tjsonAddIntegerToObject(pJson, "size", pFile->size);
+  tjsonAddIntegerToObject(pJson, "offset", pFile->offset);  // todo
+
 _exit:
   return code;
 }
@@ -582,6 +590,34 @@ static int32_t tsdbFileGroupCmprFn(const SRBTreeNode *p1, const SRBTreeNode *p2)
   return 0;
 }
 
+static int32_t tsdbFileGroupToJson(const STsdbFileGroup *pFg, SJson *pJson) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  tjsonAddIntegerToObject(pJson, "fid", pFg->fid);
+  if (pFg->fHead) {
+    tjsonAddObject(pJson, "head", (FToJson)tsdbFileToJson, pFg->fHead);
+  }
+  if (pFg->fData) {
+    tjsonAddObject(pJson, "data", (FToJson)tsdbFileToJson, pFg->fData);
+  }
+  if (pFg->fSma) {
+    tjsonAddObject(pJson, "sma", (FToJson)tsdbFileToJson, pFg->fData);
+  }
+  tjsonAddTArray(pJson, "stt", (FToJson)tsdbFileToJson, NULL /* todo */);
+
+_exit:
+  return code;
+}
+
+static int32_t tsdbJsonToFileGroup() {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
 // STsdbFileSystem ==========================================
 static int32_t tsdbNewFileSystem(STsdbFileSystem **ppFileSystem) {
   int32_t code = 0;
@@ -612,6 +648,28 @@ static void tsdbFreeFileSystem(STsdbFileSystem *pFileSystem) {
     }
     taosMemoryFree(pFileSystem);
   }
+}
+
+static int32_t tsdbFileSystemToJson(const STsdbFileSystem *pFS, SJson *pJson) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  tjsonAddIntegerToObject(pJson, "id", pFS->id);
+  if (pFS->fDel) {
+    tjsonAddObject(pJson, "tombstone", (FToJson)tsdbFileToJson, &pFS->fDel->file);
+  }
+  tjsonAddTArray(pJson, "time series", (FToJson)tsdbFileGroupToJson, NULL /* todo */);
+
+_exit:
+  return code;
+}
+
+static int32_t tsdbJsonToFileSystem() {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
 }
 
 static void tsdbCurrentFileName(STsdb *pTsdb, char current[], char current_t[]) {

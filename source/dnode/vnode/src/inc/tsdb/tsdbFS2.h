@@ -78,6 +78,7 @@ struct STsdbFileWriter {
 
 int32_t tsdbFileWriterOpen(STsdb *pTsdb, STsdbFile *pFile, STsdbFileWriter **ppWriter);
 int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter, int8_t flush);
+int32_t tsdbFileAppend(STsdbFileWriter *pWriter, const uint8_t *pBuf, int64_t size);
 
 // STsdbFileObj ======================================================
 struct STsdbFileObj {

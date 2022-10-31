@@ -20,77 +20,67 @@ static int32_t tsdbWriteBlockDataEx(STsdbFileWriter *pWriter, SBlockData *pBlock
   int32_t code = 0;
   int32_t lino = 0;
 
+  uint8_t *aBuf[4] = {NULL};
+  int32_t  aNBuf[4] = {0};
+  code = tCmprBlockData(pBlockData, cmprAlg, NULL, NULL, aBuf, aNBuf);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  for (int32_t iBuf = 3; iBuf >= 0; iBuf--) {
+    if (aNBuf[iBuf]) {
+      code = tsdbFileAppend(pWriter, aBuf[iBuf], aNBuf[iBuf]);
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+  }
+
 _exit:
   if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pWriter->pTsdb->pVnode), __func__, lino, tstrerror(code));
   } else {
+  }
+  for (int32_t iBuf = 0; iBuf < sizeof(aBuf) / sizeof(aBuf[0]); iBuf++) {
+    tFree(aBuf[iBuf]);
   }
   return code;
-#if 0
-  int32_t code = 0;
+}
 
-  ASSERT(pBlockData->nRow > 0);
+static int32_t tsdbWriteSttBlkEx(STsdbFileWriter *pWriter, SArray *aSttBlk) {
+  int32_t  code = 0;
+  int32_t  lino = 0;
+  uint8_t *pBuf = NULL;
 
-  if (toLast) {
-    pBlkInfo->offset = pWriter->fStt[pWriter->wSet.nSttF - 1].size;
-  } else {
-    pBlkInfo->offset = pWriter->fData.size;
-  }
-  pBlkInfo->szBlock = 0;
-  pBlkInfo->szKey = 0;
+  pWriter->pf->offset = pWriter->pf->size;
 
-  int32_t aBufN[4] = {0};
-  code = tCmprBlockData(pBlockData, cmprAlg, NULL, NULL, pWriter->aBuf, aBufN);
-  if (code) goto _err;
-
-  // write =================
-  STsdbFD *pFD = toLast ? pWriter->pSttFD : pWriter->pDataFD;
-
-  pBlkInfo->szKey = aBufN[3] + aBufN[2];
-  pBlkInfo->szBlock = aBufN[0] + aBufN[1] + aBufN[2] + aBufN[3];
-
-  int64_t offset = pBlkInfo->offset;
-  code = tsdbWriteFile(pFD, offset, pWriter->aBuf[3], aBufN[3]);
-  if (code) goto _err;
-  offset += aBufN[3];
-
-  code = tsdbWriteFile(pFD, offset, pWriter->aBuf[2], aBufN[2]);
-  if (code) goto _err;
-  offset += aBufN[2];
-
-  if (aBufN[1]) {
-    code = tsdbWriteFile(pFD, offset, pWriter->aBuf[1], aBufN[1]);
-    if (code) goto _err;
-    offset += aBufN[1];
+  if (0 == taosArrayGetSize(aSttBlk)) {
+    goto _exit;
   }
 
-  if (aBufN[0]) {
-    code = tsdbWriteFile(pFD, offset, pWriter->aBuf[0], aBufN[0]);
-    if (code) goto _err;
+  int32_t size = 0;
+  for (int32_t iSttBlk = 0; iSttBlk < taosArrayGetSize(aSttBlk); iSttBlk++) {
+    size += tPutSttBlk(NULL, taosArrayGet(aSttBlk, iSttBlk));
   }
 
-  // update info
-  if (toLast) {
-    pWriter->fStt[pWriter->wSet.nSttF - 1].size += pBlkInfo->szBlock;
-  } else {
-    pWriter->fData.size += pBlkInfo->szBlock;
+  code = tRealloc(&pBuf, size);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  int32_t n = 0;
+  for (int32_t iSttBlk = 0; iSttBlk < taosArrayGetSize(aSttBlk); iSttBlk++) {
+    n += tPutSttBlk(pBuf + n, taosArrayGet(aSttBlk, iSttBlk));
   }
 
-  // ================= SMA ====================
-  if (pSmaInfo) {
-    code = tsdbWriteBlockSma(pWriter, pBlockData, pSmaInfo);
-    if (code) goto _err;
-  }
+  code = tsdbFileAppend(pWriter, pBuf, size);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
+// TODO
 _exit:
-  tsdbTrace("vgId:%d, tsdb write block data, suid:%" PRId64 " uid:%" PRId64 " nRow:%d, offset:%" PRId64 " size:%d",
-            TD_VID(pWriter->pTsdb->pVnode), pBlockData->suid, pBlockData->uid, pBlockData->nRow, pBlkInfo->offset,
-            pBlkInfo->szBlock);
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s, number of stt blk:%" PRId64, TD_VID(pWriter->pTsdb->pVnode),
+              __func__, lino, tstrerror(code), taosArrayGetSize(aSttBlk));
+  } else {
+    tsdbTrace("vgId:%d %s done, number of stt blk:%" PRId64, TD_VID(pWriter->pTsdb->pVnode), __func__,
+              taosArrayGetSize(aSttBlk));
+  }
+  tFree(pBuf);
   return code;
-
-_err:
-  tsdbError("vgId:%d, tsdb write block data failed since %s", TD_VID(pWriter->pTsdb->pVnode), tstrerror(code));
-  return code;
-#endif
 }
 
 // FLUSH MEMTABLE TO FILE SYSTEM ===================================
@@ -355,6 +345,9 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
     code = tsdbFlushBlockData(pFlusher);
     TSDB_CHECK_CODE(code, lino, _exit);
   }
+
+  code = tsdbWriteSttBlkEx(pFlusher->pWriter, pFlusher->aSttBlk);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
   // close filas
   code = tsdbFileWriterClose(&pFlusher->pWriter, 1);

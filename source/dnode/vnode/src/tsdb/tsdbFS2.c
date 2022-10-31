@@ -401,24 +401,6 @@ void tsdbFileOpDestroy(STsdbFileOp **ppFileOp) {
 }
 
 // STsdbFileWriter ==========================================
-static int32_t tsdbFileAppend(STsdbFileWriter *pWriter, const uint8_t *pBuf, int64_t size) {
-  int32_t code = 0;
-  int32_t lino = 0;
-
-  ASSERT(size > 0);
-
-  code = tsdbFWrite(pWriter->pFILE, pWriter->pf->size, pBuf, size);
-  TSDB_CHECK_CODE(code, lino, _exit);
-
-  pWriter->pf->size += size;
-
-_exit:
-  if (code) {
-  } else {
-  }
-  return code;
-}
-
 static int32_t tsdbFileUpdateHdr(STsdbFileWriter *pWriter) {
   int32_t code = 0;
   int32_t lino = 0;
@@ -427,7 +409,7 @@ static int32_t tsdbFileUpdateHdr(STsdbFileWriter *pWriter) {
 
   // TODO
 
-  code = tsdbFileAppend(pWriter, hdr, TSDB_FHDR_SIZE);
+  code = tsdbFileAppend(pWriter, hdr, TSDB_FHDR_SIZE);  // todo not correct
   TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
@@ -498,6 +480,25 @@ int32_t tsdbFileWriterClose(STsdbFileWriter **ppWriter, int8_t flush) {
   }
 
 _exit:
+  return code;
+}
+
+int32_t tsdbFileAppend(STsdbFileWriter *pWriter, const uint8_t *pBuf, int64_t size) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  ASSERT(size > 0);
+
+  code = tsdbFWrite(pWriter->pFILE, pWriter->pf->size, pBuf, size);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  pWriter->pf->size += size;
+
+_exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pWriter->pTsdb->pVnode), __func__, lino, tstrerror(code));
+  } else {
+  }
   return code;
 }
 

@@ -15,6 +15,84 @@
 
 #include "tsdb.h"
 
+static int32_t tsdbWriteBlockDataEx(STsdbFileWriter *pWriter, SBlockData *pBlockData, SBlockInfo *pBlockInfo,
+                                    int8_t cmprAlg) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+_exit:
+  if (code) {
+  } else {
+  }
+  return code;
+#if 0
+  int32_t code = 0;
+
+  ASSERT(pBlockData->nRow > 0);
+
+  if (toLast) {
+    pBlkInfo->offset = pWriter->fStt[pWriter->wSet.nSttF - 1].size;
+  } else {
+    pBlkInfo->offset = pWriter->fData.size;
+  }
+  pBlkInfo->szBlock = 0;
+  pBlkInfo->szKey = 0;
+
+  int32_t aBufN[4] = {0};
+  code = tCmprBlockData(pBlockData, cmprAlg, NULL, NULL, pWriter->aBuf, aBufN);
+  if (code) goto _err;
+
+  // write =================
+  STsdbFD *pFD = toLast ? pWriter->pSttFD : pWriter->pDataFD;
+
+  pBlkInfo->szKey = aBufN[3] + aBufN[2];
+  pBlkInfo->szBlock = aBufN[0] + aBufN[1] + aBufN[2] + aBufN[3];
+
+  int64_t offset = pBlkInfo->offset;
+  code = tsdbWriteFile(pFD, offset, pWriter->aBuf[3], aBufN[3]);
+  if (code) goto _err;
+  offset += aBufN[3];
+
+  code = tsdbWriteFile(pFD, offset, pWriter->aBuf[2], aBufN[2]);
+  if (code) goto _err;
+  offset += aBufN[2];
+
+  if (aBufN[1]) {
+    code = tsdbWriteFile(pFD, offset, pWriter->aBuf[1], aBufN[1]);
+    if (code) goto _err;
+    offset += aBufN[1];
+  }
+
+  if (aBufN[0]) {
+    code = tsdbWriteFile(pFD, offset, pWriter->aBuf[0], aBufN[0]);
+    if (code) goto _err;
+  }
+
+  // update info
+  if (toLast) {
+    pWriter->fStt[pWriter->wSet.nSttF - 1].size += pBlkInfo->szBlock;
+  } else {
+    pWriter->fData.size += pBlkInfo->szBlock;
+  }
+
+  // ================= SMA ====================
+  if (pSmaInfo) {
+    code = tsdbWriteBlockSma(pWriter, pBlockData, pSmaInfo);
+    if (code) goto _err;
+  }
+
+_exit:
+  tsdbTrace("vgId:%d, tsdb write block data, suid:%" PRId64 " uid:%" PRId64 " nRow:%d, offset:%" PRId64 " size:%d",
+            TD_VID(pWriter->pTsdb->pVnode), pBlockData->suid, pBlockData->uid, pBlockData->nRow, pBlkInfo->offset,
+            pBlkInfo->szBlock);
+  return code;
+
+_err:
+  tsdbError("vgId:%d, tsdb write block data failed since %s", TD_VID(pWriter->pTsdb->pVnode), tstrerror(code));
+  return code;
+#endif
+}
+
 // FLUSH MEMTABLE TO FILE SYSTEM ===================================
 typedef struct {
   // configs
@@ -120,7 +198,32 @@ static int32_t tsdbFlushBlockData(STsdbFlusher *pFlusher) {
 
   if (0 == pFlusher->bData.nRow) return code;
 
-  // TODO
+  SBlockData *pBlockData = &pFlusher->bData;
+  SSttBlk     sttBlk = {0};
+
+  sttBlk.suid = pBlockData->suid;
+  sttBlk.nRow = pBlockData->nRow;
+  sttBlk.minKey = TSKEY_MAX;
+  sttBlk.maxKey = TSKEY_MIN;
+  sttBlk.minVer = VERSION_MAX;
+  sttBlk.maxVer = VERSION_MIN;
+  for (int32_t iRow = 0; iRow < pBlockData->nRow; iRow++) {
+    sttBlk.minKey = TMIN(sttBlk.minKey, pBlockData->aTSKEY[iRow]);
+    sttBlk.maxKey = TMAX(sttBlk.maxKey, pBlockData->aTSKEY[iRow]);
+    sttBlk.minVer = TMIN(sttBlk.minVer, pBlockData->aVersion[iRow]);
+    sttBlk.maxVer = TMAX(sttBlk.maxVer, pBlockData->aVersion[iRow]);
+  }
+  sttBlk.minUid = pBlockData->uid ? pBlockData->uid : pBlockData->aUid[0];
+  sttBlk.maxUid = pBlockData->uid ? pBlockData->uid : pBlockData->aUid[pBlockData->nRow - 1];
+
+  // write
+  code = tsdbWriteBlockDataEx(pFlusher->pWriter, pBlockData, &sttBlk.bInfo, pFlusher->cmprAlg);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  if (NULL == taosArrayPush(pFlusher->aSttBlk, &sttBlk)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
 
   tBlockDataClear(&pFlusher->bData);
 
@@ -195,7 +298,7 @@ _exit:
     tsdbError("vgId:%d %s failed at line %d since %s, fid:%d suid:%" PRId64 " uid:%" PRId64, TD_VID(pTsdb->pVnode),
               __func__, lino, tstrerror(code), pFlusher->fid, pTbData->suid, pTbData->uid);
   } else {
-    tsdbDebug("vgId:%d %s done, fid:%d suid:%" PRId64 " uid:%" PRId64 " nRows:%" PRId64, TD_VID(pTsdb->pVnode),
+    tsdbTrace("vgId:%d %s done, fid:%d suid:%" PRId64 " uid:%" PRId64 " nRows:%" PRId64, TD_VID(pTsdb->pVnode),
               __func__, pFlusher->fid, pTbData->suid, pTbData->uid, nRows);
   }
   return code;
@@ -347,6 +450,8 @@ int32_t tsdbFlush(STsdb *pTsdb) {
   }
 
   // apply change
+  // code = tsdbFileSystemCommit1(pTsdb, flusher.aFileOpP);
+  // TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {

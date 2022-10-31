@@ -103,11 +103,15 @@ struct STsdbFileGroup {
 
 // STsdbFileSystem ======================================================
 struct STsdbFileSystem {
-  int64_t       id;
-  STsdbFileObj *fDel;
-  SRBTree       fGroup;  // SArray<STsdbFileGroup>
+  volatile int64_t id;
+  STsdbFileObj    *fDel;
+  SRBTree          fGroup;   // SArray<STsdbFileGroup>
+  SArray          *aFileOp;  // SArray<STsdbFileOp>
 };
 
 int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback);
 int32_t tsdbCloseFileSystem(STsdb *pTsdb);
-int32_t tsdbDoFileOps(STsdbFileSystem *pFileSystem, SArray *aFileOp);
+int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP);
+int32_t tsdbFileSystemCommit(STsdb *pTsdb);
+int32_t tsdbFileSystemRollback(STsdb *pTsdb);
+int64_t tsdbFileSystemNextId(STsdb *pTsdb);

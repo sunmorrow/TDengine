@@ -606,6 +606,10 @@ _exit:
 
 static void tsdbFreeFileSystem(STsdbFileSystem *pFileSystem) {
   if (pFileSystem) {
+    if (pFileSystem->aFileOp) {
+      taosArrayDestroy(pFileSystem->aFileOp);
+      pFileSystem->aFileOp = NULL;
+    }
     taosMemoryFree(pFileSystem);
   }
 }
@@ -764,20 +768,92 @@ _exit:
   return code;
 }
 
-int32_t tsdbDoFileOps(STsdbFileSystem *pFileSystem, SArray *aFileOp) {
+int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP /* SArray<SFileOp *> */) {
   int32_t code = 0;
   int32_t lino = 0;
 
-  for (int32_t iOp = 0; iOp < taosArrayGetSize(aFileOp); iOp++) {
-    STsdbFileOp *pFileOp = (STsdbFileOp *)taosArrayGet(aFileOp, iOp);
-    // todo
+  STsdbFileSystem *pFS = pTsdb->pFS;
+
+  // sem_wait it can change (todo)
+
+  // copy the operation (todo)
+  if (NULL == pFS->aFileOp) {
+    pFS->aFileOp = taosArrayInit(taosArrayGetSize(aFileOpP), sizeof(STsdbFileOp));
+    if (NULL == pFS->aFileOp) {
+      code = TSDB_CODE_OUT_OF_MEMORY;
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+  } else {
+    taosArrayClear(pFS->aFileOp);
   }
 
-  // todo
+  for (int32_t iFileOpP = 0; iFileOpP < taosArrayGetSize(aFileOpP); iFileOpP++) {
+    STsdbFileOp *pOp = (STsdbFileOp *)taosArrayGetP(aFileOpP, iFileOpP);
+    if (NULL == taosArrayPush(pFS->aFileOp, pOp)) {
+      code = TSDB_CODE_OUT_OF_MEMORY;
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+  }
+
+  // save new file system state to current file (todo)
 
 _exit:
   if (code) {
-    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  } else {
+    tsdbDebug("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
   }
   return code;
 }
+
+int32_t tsdbFileSystemCommit(STsdb *pTsdb) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  STsdbFileSystem *pFS = pTsdb->pFS;
+
+  // rename file(todo)
+  // taosRenameFile():
+
+  // apply change to file system
+  for (int32_t iFileOp = 0; iFileOp < taosArrayGetSize(pFS->aFileOp); iFileOp++) {
+    STsdbFileOp *pOp = (STsdbFileOp *)taosArrayGet(pFS->aFileOp, iFileOp);
+
+    switch (pOp->op) {
+      case TSDB_FOP_ADD:
+        /* code */
+        break;
+      case TSDB_FOP_REMOVE:
+        /* code */
+        break;
+      case TSDB_FOP_MOD:
+        /* code */
+        break;
+      default:
+        ASSERT(0);
+    }
+  }
+
+_exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  } else {
+    tsdbTrace("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
+  }
+  return code;
+}
+
+int32_t tsdbFileSystemRollback(STsdb *pTsdb) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+  } else {
+    tsdbTrace("%s done", __func__);
+  }
+  return code;
+}
+
+int64_t tsdbFileSystemNextId(STsdb *pTsdb) { return atomic_add_fetch_64(&pTsdb->pFS->id, 1); }

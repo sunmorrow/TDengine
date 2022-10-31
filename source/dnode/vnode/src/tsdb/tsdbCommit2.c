@@ -313,10 +313,10 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   // create/open file to write
   STsdbFileOp *pFileOp = NULL;
   STsdbFile    file = {
-         .ftype = TSDB_FTYPE_STT,  //
-         .did = {0},               // todo
-         .fid = pFlusher->fid,     //
-         .id = 0,                  // todo
+         .ftype = TSDB_FTYPE_STT,
+         .did = {0},  // todo
+         .fid = pFlusher->fid,
+         .id = tsdbFileSystemNextId(pTsdb),
   };
   code = tsdbFileOpCreate(TSDB_FOP_ADD, &file, &pFileOp);
   TSDB_CHECK_CODE(code, lino, _exit);
@@ -443,8 +443,8 @@ int32_t tsdbFlush(STsdb *pTsdb) {
   }
 
   // apply change
-  // code = tsdbFileSystemCommit1(pTsdb, flusher.aFileOpP);
-  // TSDB_CHECK_CODE(code, lino, _exit);
+  code = tsdbFileSystemPrepare(pTsdb, flusher.aFileOpP);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {

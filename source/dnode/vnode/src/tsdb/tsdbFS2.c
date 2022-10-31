@@ -463,8 +463,10 @@ int32_t tsdbFileWriterOpen(STsdb *pTsdb, STsdbFile *pFile, STsdbFileWriter **ppW
   pWriter->pTsdb = pTsdb;
   pWriter->pf = pFile;
 
-  code = tsdbFileUpdateHdr(pWriter);
-  TSDB_CHECK_CODE(code, lino, _exit);
+  if (0 == pFile->size) {
+    code = tsdbFileUpdateHdr(pWriter);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
 
 _exit:
   if (code) {

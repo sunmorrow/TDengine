@@ -1212,49 +1212,6 @@ int32_t tsdbReadDataBlock(SDataFReader *pReader, SDataBlk *pDataBlk, SBlockData 
 
   ASSERT(pDataBlk->nSubBlock == 1);
 
-#if 0
-  if (pDataBlk->nSubBlock > 1) {
-    SBlockData bData1;
-    SBlockData bData2;
-
-    // create
-    code = tBlockDataCreate(&bData1);
-    if (code) goto _err;
-    code = tBlockDataCreate(&bData2);
-    if (code) goto _err;
-
-    // init
-    tBlockDataInitEx(&bData1, pBlockData);
-    tBlockDataInitEx(&bData2, pBlockData);
-
-    for (int32_t iSubBlock = 1; iSubBlock < pDataBlk->nSubBlock; iSubBlock++) {
-      code = tsdbReadBlockDataImpl(pReader, &pDataBlk->aSubBlock[iSubBlock], &bData1);
-      if (code) {
-        tBlockDataDestroy(&bData1, 1);
-        tBlockDataDestroy(&bData2, 1);
-        goto _err;
-      }
-
-      code = tBlockDataCopy(pBlockData, &bData2);
-      if (code) {
-        tBlockDataDestroy(&bData1, 1);
-        tBlockDataDestroy(&bData2, 1);
-        goto _err;
-      }
-
-      code = tBlockDataMerge(&bData1, &bData2, pBlockData);
-      if (code) {
-        tBlockDataDestroy(&bData1, 1);
-        tBlockDataDestroy(&bData2, 1);
-        goto _err;
-      }
-    }
-
-    tBlockDataDestroy(&bData1, 1);
-    tBlockDataDestroy(&bData2, 1);
-  }
-#endif
-
   return code;
 
 _err:

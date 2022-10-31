@@ -35,7 +35,7 @@ typedef struct {
   TSKEY            maxKey;
   STsdbFileWriter *pWriter;
   SArray          *aSttBlk;
-  SBlockData      *pBData;
+  SBlockData       bData;
   int32_t          iTbData;
   SSkmInfo         skmTable;
   SSkmInfo         skmRow;
@@ -67,6 +67,9 @@ static int32_t tsdbFlusherInit(STsdb *pTsdb, STsdbFlusher *pFlusher) {
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
+  code = tBlockDataCreate(&pFlusher->bData);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
 _exit:
   if (code) {
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pVnode), __func__, lino, tstrerror(code));
@@ -75,6 +78,8 @@ _exit:
 }
 
 static void tsdbFlusherClear(STsdbFlusher *pFlusher) {
+  tBlockDataDestroy(&pFlusher->bData, 1);
+
   if (pFlusher->aSttBlk) {
     taosArrayDestroy(pFlusher->aSttBlk);
     pFlusher->aSttBlk = NULL;
@@ -112,8 +117,20 @@ _exit:
 static int32_t tsdbFlushBlockData(STsdbFlusher *pFlusher) {
   int32_t code = 0;
   int32_t lino = 0;
+
+  if (0 == pFlusher->bData.nRow) return code;
+
   // TODO
+
+  tBlockDataClear(&pFlusher->bData);
+
 _exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pFlusher->pTsdb->pVnode), __func__, lino,
+              tstrerror(code));
+  } else {
+    tsdbTrace("vgId:%d %s done", TD_VID(pFlusher->pTsdb->pVnode), __func__);
+  }
   return code;
 }
 
@@ -125,6 +142,7 @@ static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextK
   STbData    *pTbData = (STbData *)taosArrayGetP(pFlusher->aTbDataP, pFlusher->iTbData);
   STbDataIter iter = {0};
   int64_t     nRows = 0;
+  TABLEID     id = {.suid = pTbData->suid, .uid = pTbData->uid};
   TSDBKEY     fromKey = {.version = VERSION_MIN, .ts = pFlusher->minKey};
   SMeta      *pMeta = pTsdb->pVnode->pMeta;
 
@@ -132,13 +150,18 @@ static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextK
   TSDB_CHECK_CODE(code, lino, _exit);
 
   // check if need to flush the data (todo)
-  if (!TABLE_SAME_SCHEMA(pFlusher->pBData->suid, pFlusher->pBData->uid, pTbData->suid, pTbData->uid)) {
+  if (!TABLE_SAME_SCHEMA(pFlusher->bData.suid, pFlusher->bData.uid, pTbData->suid, pTbData->uid)) {
     code = tsdbFlushBlockData(pFlusher);
     TSDB_CHECK_CODE(code, lino, _exit);
-    // reset the block data (todo)
+
+    tBlockDataReset(&pFlusher->bData);
   }
 
   // init the block data (todo)
+  if (!TABLE_SAME_SCHEMA(pTbData->suid, pTbData->uid, pFlusher->bData.suid, pFlusher->bData.uid)) {
+    code = tBlockDataInit(&pFlusher->bData, &id, pFlusher->skmTable.pTSchema, NULL, 0);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
 
   tsdbTbDataIterOpen(pTbData, &fromKey, 0, &iter);
   for (;;) {
@@ -156,12 +179,12 @@ static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextK
     code = tsdbUpdateSkmInfo(pMeta, pTbData->suid, pTbData->uid, TSDBROW_SVERSION(pRow), &pFlusher->skmRow);
     TSDB_CHECK_CODE(code, lino, _exit);
 
-    code = tBlockDataAppendRow(pFlusher->pBData, pRow, pFlusher->skmRow.pTSchema, pTbData->uid);
+    code = tBlockDataAppendRow(&pFlusher->bData, pRow, pFlusher->skmRow.pTSchema, pTbData->uid);
     TSDB_CHECK_CODE(code, lino, _exit);
 
     tsdbTbDataIterNext(&iter);
 
-    if (pFlusher->pBData->nRow >= pFlusher->maxRow) {
+    if (pFlusher->bData.nRow >= pFlusher->maxRow) {
       code = tsdbFlushBlockData(pFlusher);
       TSDB_CHECK_CODE(code, lino, _exit);
     }
@@ -192,6 +215,7 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   } else {
     taosArrayClear(pFlusher->aSttBlk);
   }
+  tBlockDataReset(&pFlusher->bData);
 
   // create/open file to write
   STsdbFileOp *pFileOp = NULL;
@@ -224,7 +248,7 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   }
 
   // flush remain data
-  if (pFlusher->pBData->nRow > 0) {
+  if (pFlusher->bData.nRow > 0) {
     code = tsdbFlushBlockData(pFlusher);
     TSDB_CHECK_CODE(code, lino, _exit);
   }
@@ -321,6 +345,8 @@ int32_t tsdbFlush(STsdb *pTsdb) {
     code = tsdbFlushDelData(&flusher);
     TSDB_CHECK_CODE(code, lino, _exit);
   }
+
+  // apply change
 
 _exit:
   if (code) {

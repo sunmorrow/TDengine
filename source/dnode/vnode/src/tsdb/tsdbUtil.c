@@ -993,30 +993,6 @@ _exit:
   return code;
 }
 
-int32_t tBlockDataInitEx(SBlockData *pBlockData, SBlockData *pBlockDataFrom) {
-  int32_t code = 0;
-
-  ASSERT(pBlockDataFrom->suid || pBlockDataFrom->uid);
-
-  pBlockData->suid = pBlockDataFrom->suid;
-  pBlockData->uid = pBlockDataFrom->uid;
-  pBlockData->nRow = 0;
-
-  taosArrayClear(pBlockData->aIdx);
-  for (int32_t iColData = 0; iColData < taosArrayGetSize(pBlockDataFrom->aIdx); iColData++) {
-    SColData *pColDataFrom = tBlockDataGetColDataByIdx(pBlockDataFrom, iColData);
-
-    SColData *pColData;
-    code = tBlockDataAddColData(pBlockData, iColData, &pColData);
-    if (code) goto _exit;
-
-    tColDataInit(pColData, pColDataFrom->cid, pColDataFrom->type, pColDataFrom->smaOn);
-  }
-
-_exit:
-  return code;
-}
-
 void tBlockDataReset(SBlockData *pBlockData) {
   pBlockData->suid = 0;
   pBlockData->uid = 0;

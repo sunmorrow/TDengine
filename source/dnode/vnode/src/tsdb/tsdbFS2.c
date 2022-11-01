@@ -99,6 +99,28 @@ _exit:
   return code;
 }
 
+static int32_t tsdbFFlush(TSDBFILE *pFILE) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  code = tsdbFWritePage(pFILE);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  if (taosFsyncFile(pFILE->pFD) < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+_exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s, fName:%s szPage:%d", __func__, lino, tstrerror(code), pFILE->name,
+              pFILE->szPage);
+  } else {
+    tsdbTrace("%s done", __func__);
+  }
+  return code;
+}
+
 int32_t tsdbFOpen(const char *fName, int32_t szPage, int32_t flags, TSDBFILE **ppFILE) {
   int32_t code = 0;
   int32_t lino = 0;
@@ -167,13 +189,8 @@ int32_t tsdbFClose(TSDBFILE **ppFILE, int8_t flush) {
   }
 
   if (flush) {
-    code = tsdbFWritePage(pFILE);
+    code = tsdbFFlush(pFILE);
     TSDB_CHECK_CODE(code, lino, _exit);
-
-    if (taosFsyncFile(pFILE->pFD) < 0) {
-      code = TAOS_SYSTEM_ERROR(errno);
-      TSDB_CHECK_CODE(code, lino, _exit);
-    }
   }
 
   taosCloseFile(&pFILE->pFD);
@@ -576,6 +593,8 @@ static int32_t tsdbSttFileCmprFn(const SRBTreeNode *p1, const SRBTreeNode *p2) {
   return 0;
 }
 
+// STsdbFileArray ======================================================
+
 // STsdbFileGroup ==========================================
 static int32_t tsdbFileGroupCmprFn(const SRBTreeNode *p1, const SRBTreeNode *p2) {
   STsdbFileGroup *pFg1 = RBTN_TO_FILE_GROUP(p1);
@@ -760,6 +779,14 @@ _exit:
   return code;
 }
 
+static int32_t tsdbFileSystemApplyOp(STsdbFileSystem *pFS, const STsdbFileOp *pOp) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
 int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback) {
   int32_t code = 0;
   int32_t lino = 0;
@@ -900,11 +927,17 @@ int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP /* SArray<SFileOp *
   // code = tsdbFileSystemCopy(pTsdb->pFS, NULL /*todo*/);
   // TSDB_CHECK_CODE(code, lino, _exit);
 
-  // code = tsdbFileSystemApplyOp();
-  // TSDB_CHECK_CODE(code, lino, _exit);
+  for (int32_t iFileOp = 0; iFileOp < taosArrayGetSize(pFS->aFileOp); iFileOp++) {
+    STsdbFileOp *pOp = (STsdbFileOp *)taosArrayGet(pFS->aFileOp, iFileOp);
+    code = tsdbFileSystemApplyOp(NULL /* todo */, pOp);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
 
-  // code = tsdbSaveFileSystemToFile(pTsdb, NULL);
-  // TSDB_CHECK_CODE(code, lino, _exit);
+  char current_t[TSDB_FILENAME_LEN] = {0};
+  tsdbCurrentFileName(pTsdb, NULL, current_t);
+
+  code = tsdbSaveFileSystemToFile(pTsdb, NULL /* todo */, current_t);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {

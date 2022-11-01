@@ -23,6 +23,7 @@ typedef struct STsdbFile       STsdbFile;
 typedef struct STsdbFileOp     STsdbFileOp;
 typedef struct STsdbFileWriter STsdbFileWriter;
 typedef struct STsdbFileObj    STsdbFileObj;
+typedef struct STsdbFileArray  STsdbFileArray;
 typedef struct STsdbFileGroup  STsdbFileGroup;
 typedef struct STsdbFileSystem STsdbFileSystem;
 
@@ -88,6 +89,12 @@ struct STsdbFileObj {
 };
 
 #define RBTN_TO_FILE_OBJ(PNODE) ((STsdbFileObj *)(((uint8_t *)PNODE) - offsetof(STsdbFileObj, rbtn)))
+
+// STsdbFileArray ======================================================
+struct STsdbFileArray {
+  int32_t level;
+  SArray *aFileObj;
+};
 
 // STsdbFileGroup ======================================================
 struct STsdbFileGroup {

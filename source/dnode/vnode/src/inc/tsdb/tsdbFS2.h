@@ -114,7 +114,7 @@ struct STsdbFileSystem {
   SArray       *aFileGroup;
 };
 
-int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback);
+int32_t tsdbOpenFS(STsdb *pTsdb, int8_t rollback);
 int32_t tsdbCloseFileSystem(STsdb *pTsdb);
 int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP);
 int32_t tsdbFileSystemCommit(STsdb *pTsdb);

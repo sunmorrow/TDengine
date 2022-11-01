@@ -71,7 +71,7 @@ int tsdbOpen(SVnode *pVnode, STsdb **ppTsdb, const char *dir, STsdbKeepCfg *pKee
     goto _err;
   }
 #else
-  if ((terrno = tsdbOpenFileSystem(pTsdb, rollback))) {
+  if ((terrno = tsdbOpenFS(pTsdb, rollback))) {
     goto _err;
   }
 #endif

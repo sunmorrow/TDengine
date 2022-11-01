@@ -149,6 +149,7 @@ struct STsdb {
   STsdbFileSystem *pFSN;
 
   STsdbFS fs;  // todo: delete
+
   // cache
   SLRUCache    *lruCache;
   TdThreadMutex lruMutex;

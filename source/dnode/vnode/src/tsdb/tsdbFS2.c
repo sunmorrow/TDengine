@@ -661,21 +661,36 @@ static int32_t tsdbFileGroupToJson(const STsdbFileGroup *pFg, SJson *pJson) {
   int32_t code = 0;
   int32_t lino = 0;
 
-  tjsonAddIntegerToObject(pJson, "fid", pFg->fid);
+  if (tjsonAddIntegerToObject(pJson, "fid", pFg->fid)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
   if (pFg->fHead) {
-    code = tjsonAddObject(pJson, "head", (FToJson)tsdbFileToJson, &pFg->fHead->file);
-    TSDB_CHECK_CODE(code, lino, _exit);
+    if (tjsonAddObject(pJson, "head", (FToJson)tsdbFileToJson, &pFg->fHead->file)) {
+      code = TSDB_CODE_OUT_OF_MEMORY;
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
   }
+
   if (pFg->fData) {
-    code = tjsonAddObject(pJson, "data", (FToJson)tsdbFileToJson, &pFg->fData->file);
-    TSDB_CHECK_CODE(code, lino, _exit);
+    if (tjsonAddObject(pJson, "data", (FToJson)tsdbFileToJson, &pFg->fData->file)) {
+      code = TSDB_CODE_OUT_OF_MEMORY;
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
   }
+
   if (pFg->fSma) {
-    code = tjsonAddObject(pJson, "sma", (FToJson)tsdbFileToJson, &pFg->fData->file);
+    if (tjsonAddObject(pJson, "sma", (FToJson)tsdbFileToJson, &pFg->fData->file)) {
+      code = TSDB_CODE_OUT_OF_MEMORY;
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+  }
+
+  if (tjsonAddTArray(pJson, "stt", (FToJson)tsdbFileToJson, pFg->aFStt)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
     TSDB_CHECK_CODE(code, lino, _exit);
   }
-  code = tjsonAddTArray(pJson, "stt", (FToJson)tsdbFileToJson, pFg->aFStt);
-  TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {
@@ -693,32 +708,41 @@ _exit:
 }
 
 // STsdbFileSystem ==========================================
-static int32_t tsdbNewFileSystem(STsdbFileSystem **ppFileSystem) {
+static int32_t tsdbNewFileSystem(STsdbFileSystem **ppFS) {
   int32_t code = 0;
   int32_t lino = 0;
 
-  STsdbFileSystem *pFileSystem = (STsdbFileSystem *)taosMemoryCalloc(1, sizeof(*pFileSystem));
-  if (NULL == pFileSystem) {
+  STsdbFileSystem *pFS = (STsdbFileSystem *)taosMemoryCalloc(1, sizeof(*pFS));
+  if (NULL == pFS) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pFS->aFileGroup = taosArrayInit(0, sizeof(STsdbFileGroup));
+  if (NULL == pFS->aFileGroup) {
     code = TSDB_CODE_OUT_OF_MEMORY;
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
 _exit:
   if (code) {
-    *ppFileSystem = NULL;
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+    *ppFS = NULL;
   } else {
-    *ppFileSystem = pFileSystem;
+    *ppFS = pFS;
   }
   return code;
 }
 
-static void tsdbFreeFileSystem(STsdbFileSystem *pFileSystem) {
-  if (pFileSystem) {
-    // if (pFileSystem->aFileOp) {
-    //   taosArrayDestroy(pFileSystem->aFileOp);
-    //   pFileSystem->aFileOp = NULL;
-    // }
-    taosMemoryFree(pFileSystem);
+static void tsdbFreeFileSystem(STsdbFileSystem *pFS) {
+  if (pFS) {
+    ASSERT(pFS->fDel == NULL);
+    if (pFS->aFileGroup) {
+      ASSERT(taosArrayGetSize(pFS->aFileGroup) == 0);
+      taosArrayDestroy(pFS->aFileGroup);
+      pFS->aFileGroup = NULL;
+    }
+    taosMemoryFree(pFS);
   }
 }
 
@@ -726,11 +750,6 @@ static int32_t tsdbFileSystemToJson(const STsdbFileSystem *pFS, SJson *pJson) {
   int32_t code = 0;
   int32_t lino = 0;
 
-#if 0
-  if (tjsonAddIntegerToObject(pJson, "id", pFS->id)) {
-    code = TSDB_CODE_OUT_OF_MEMORY;
-    TSDB_CHECK_CODE(code, lino, _exit);
-  }
   if (pFS->fDel) {
     if (tjsonAddObject(pJson, "tombstone", (FToJson)tsdbFileToJson, &pFS->fDel->file) < 0) {
       code = TSDB_CODE_OUT_OF_MEMORY;
@@ -738,7 +757,6 @@ static int32_t tsdbFileSystemToJson(const STsdbFileSystem *pFS, SJson *pJson) {
     }
   }
   tjsonAddTArray(pJson, "time-series", (FToJson)tsdbFileGroupToJson, pFS->aFileGroup);
-#endif
 
 _exit:
   if (code) {
@@ -747,11 +765,15 @@ _exit:
   return code;
 }
 
-static int32_t tsdbJsonToFileSystem() {
+static int32_t tsdbJsonToFileSystem(const SJson *pJson, STsdbFileSystem *pFS) {
   int32_t code = 0;
   int32_t lino = 0;
+
   // TODO
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+  }
   return code;
 }
 
@@ -776,9 +798,10 @@ static void tsdbCurrentFileName(STsdb *pTsdb, char current[], char current_t[]) 
   }
 }
 
-static int32_t tsdbSaveFileSystemToFile(STsdb *pTsdb, STsdbFileSystem *pFileSystem, const char *fName) {
-  int32_t   code = 0;
-  int32_t   lino = 0;
+static int32_t tsdbSaveFileSystemToFile(STsdb *pTsdb, const STsdbFileSystem *pFS, const char *fName) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
   SJson    *pJson = NULL;
   char     *jsonStr = NULL;
   TdFilePtr pFD = NULL;
@@ -790,7 +813,7 @@ static int32_t tsdbSaveFileSystemToFile(STsdb *pTsdb, STsdbFileSystem *pFileSyst
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
-  code = tsdbFileSystemToJson(pFileSystem, pJson);
+  code = tsdbFileSystemToJson(pFS, pJson);
   TSDB_CHECK_CODE(code, lino, _exit);
 
   jsonStr = tjsonToString(pJson);
@@ -811,12 +834,18 @@ static int32_t tsdbSaveFileSystemToFile(STsdb *pTsdb, STsdbFileSystem *pFileSyst
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
+  if (taosFsyncFile(pFD) < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
 _exit:
   if (code) {
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
   } else {
     tsdbTrace("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
   }
+
   if (NULL != pFD) {
     taosCloseFile(&pFD);
   }
@@ -826,14 +855,66 @@ _exit:
   if (jsonStr) {
     taosMemoryFree(jsonStr);
   }
+
   return code;
 }
 
-static int32_t tsdbLoadFileSystemFromFile(STsdb *pTsdb, const char *fName, STsdbFileSystem *pFileSystem) {
+static int32_t tsdbLoadFileSystemFromFile(STsdb *pTsdb, const char *fName, STsdbFileSystem *pFS) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  TdFilePtr pFD = NULL;
+  char     *jsonStr = NULL;
+  SJson    *pJson = NULL;
+  int64_t   size = 0;
+
+  // read file and parse json
+  pFD = taosOpenFile(fName, TD_FILE_READ);
+  if (NULL == pFD) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  if (taosFStatFile(pFD, &size, NULL) < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  jsonStr = taosMemoryMalloc(size + 1);
+  if (NULL == jsonStr) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  if (taosReadFile(pFD, jsonStr, size) < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pJson = tjsonParse(jsonStr);
+  if (NULL == pJson) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  code = tsdbJsonToFileSystem(pJson, pFS);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
 _exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  }
+
+  if (pFD) {
+    taosCloseFile(&pFD);
+  }
+  if (jsonStr) {
+    taosMemoryFree(jsonStr);
+  }
+  if (pJson) {
+    tjsonDelete(pJson);
+  }
+
   return code;
 }
 
@@ -853,35 +934,111 @@ _exit:
   return code;
 }
 
-int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback) {
+static int32_t tsdbApplyNewFS(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
 
-  // create
-  STsdbFileSystem **ppFileSystem = &pTsdb->pFS;
-  code = tsdbNewFileSystem(ppFileSystem);
+  STsdbFileSystem *pFS_Old = pTsdb->pFS;
+  STsdbFileSystem *pFS_New = pTsdb->pFSN;
+
+  // tombstone
+  if (pFS_Old->fDel) {
+    if (pFS_New->fDel) {
+      // may change
+    } else {
+      ASSERT(0);
+    }
+  } else {
+    if (pFS_New->fDel) {
+    } else {
+    }
+  }
+
+  // time-series
+  int32_t iOld = 0;
+  int32_t iNew = 0;
+
+  while (true) {
+    STsdbFileGroup *pFg_Old = NULL;
+    STsdbFileGroup *pFg_New = NULL;
+
+    if (iOld < taosArrayGetSize(pFS_Old->aFileGroup)) {
+      pFg_Old = (STsdbFileGroup *)taosArrayGet(pFS_Old->aFileGroup, iOld);
+    }
+    if (iNew < taosArrayGetSize(pFS_New->aFileGroup)) {
+      pFg_New = (STsdbFileGroup *)taosArrayGet(pFS_New->aFileGroup, iNew);
+    }
+
+    if (NULL == pFg_Old && NULL == pFg_New) break;
+
+    if (pFg_Old && pFg_New) {
+      if (pFg_Old->fid == pFg_New->fid) {
+        // merge change
+      } else if (pFg_Old->fid < pFg_New->fid) {
+        // delete old
+        iOld++;
+      } else {
+        // add new
+        iOld++;
+        iNew++;
+      }
+    } else if (pFg_Old) {
+      // delete old
+      iOld++;
+    } else {
+      // add new
+      iOld++;
+      iNew++;
+    }
+  }
+
+_exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  }
+  return code;
+}
+
+int32_t tsdbOpenFS(STsdb *pTsdb, int8_t rollback) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  // create in memory
+  code = tsdbNewFileSystem(&pTsdb->pFS);
   TSDB_CHECK_CODE(code, lino, _exit);
 
-  // recover file system
+  code = tsdbNewFileSystem(&pTsdb->pFSN);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  // recover from disk
   char current[TSDB_FILENAME_LEN] = {0};
   char current_t[TSDB_FILENAME_LEN] = {0};
   tsdbCurrentFileName(pTsdb, current, current_t);
 
   if (taosCheckExistFile(current)) {
-    code = tsdbLoadFileSystemFromFile(pTsdb, current, *ppFileSystem);
+    code = tsdbLoadFileSystemFromFile(pTsdb, current, pTsdb->pFS);
     TSDB_CHECK_CODE(code, lino, _exit);
 
     if (taosCheckExistFile(current_t)) {
       if (rollback) {
-        // todo
+        (void)taosRemoveFile(current_t);
       } else {
-        // todo
+        code = tsdbLoadFileSystemFromFile(pTsdb, current_t, pTsdb->pFSN);
+        TSDB_CHECK_CODE(code, lino, _exit);
+
+        if (taosRenameFile(current_t, current) < 0) {
+          code = TAOS_SYSTEM_ERROR(errno);
+          TSDB_CHECK_CODE(code, lino, _exit);
+        }
+
+        code = tsdbApplyNewFS(pTsdb);
+        TSDB_CHECK_CODE(code, lino, _exit);
       }
     }
   } else {
     ASSERT(!rollback);
 
-    code = tsdbSaveFileSystemToFile(pTsdb, *ppFileSystem, current);
+    code = tsdbSaveFileSystemToFile(pTsdb, pTsdb->pFS, current);
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 

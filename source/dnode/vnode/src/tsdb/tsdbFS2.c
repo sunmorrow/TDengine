@@ -352,23 +352,71 @@ static int32_t tsdbFileToJson(const STsdbFile *pFile, SJson *pJson) {
   int32_t code = 0;
   int32_t lino = 0;
 
-  tjsonAddIntegerToObject(pJson, "type", pFile->ftype);
-  tjsonAddIntegerToObject(pJson, "disk level", pFile->did.level);
-  tjsonAddIntegerToObject(pJson, "disk id", pFile->did.id);
-  tjsonAddIntegerToObject(pJson, "fid", pFile->fid);
-  tjsonAddIntegerToObject(pJson, "id", pFile->id);
-  tjsonAddIntegerToObject(pJson, "size", pFile->size);
-  tjsonAddIntegerToObject(pJson, "offset", pFile->offset);  // todo
+  if (tjsonAddIntegerToObject(pJson, "type", pFile->ftype)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+  if (tjsonAddIntegerToObject(pJson, "disk level", pFile->did.level)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+  if (tjsonAddIntegerToObject(pJson, "disk id", pFile->did.id)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+  if (tjsonAddIntegerToObject(pJson, "fid", pFile->fid)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+  if (tjsonAddIntegerToObject(pJson, "id", pFile->id)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+  if (tjsonAddIntegerToObject(pJson, "size", pFile->size)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+  if (tjsonAddIntegerToObject(pJson, "offset", pFile->offset)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
 
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+  }
   return code;
 }
 
-static int32_t tsdbJsonToFile(STsdbFile *pFile) {
+static int32_t tsdbJsonToFile(const SJson *pJson, STsdbFile *pFile) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  tjsonGetNumberValue(pJson, "type", pFile->ftype, code);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  tjsonGetNumberValue(pJson, "disk level", pFile->did.level, code);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  tjsonGetNumberValue(pJson, "disk id", pFile->did.id, code);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  tjsonGetNumberValue(pJson, "fid", pFile->fid, code);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  tjsonGetNumberValue(pJson, "id", pFile->id, code);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  tjsonGetNumberValue(pJson, "size", pFile->size, code);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  tjsonGetNumberValue(pJson, "offset", pFile->offset, code);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+  }
   return code;
 }
 
@@ -615,17 +663,24 @@ static int32_t tsdbFileGroupToJson(const STsdbFileGroup *pFg, SJson *pJson) {
 
   tjsonAddIntegerToObject(pJson, "fid", pFg->fid);
   if (pFg->fHead) {
-    tjsonAddObject(pJson, "head", (FToJson)tsdbFileToJson, pFg->fHead);
+    code = tjsonAddObject(pJson, "head", (FToJson)tsdbFileToJson, &pFg->fHead->file);
+    TSDB_CHECK_CODE(code, lino, _exit);
   }
   if (pFg->fData) {
-    tjsonAddObject(pJson, "data", (FToJson)tsdbFileToJson, pFg->fData);
+    code = tjsonAddObject(pJson, "data", (FToJson)tsdbFileToJson, &pFg->fData->file);
+    TSDB_CHECK_CODE(code, lino, _exit);
   }
   if (pFg->fSma) {
-    tjsonAddObject(pJson, "sma", (FToJson)tsdbFileToJson, pFg->fData);
+    code = tjsonAddObject(pJson, "sma", (FToJson)tsdbFileToJson, &pFg->fData->file);
+    TSDB_CHECK_CODE(code, lino, _exit);
   }
-  tjsonAddTArray(pJson, "stt", (FToJson)tsdbFileToJson, NULL /* todo */);
+  code = tjsonAddTArray(pJson, "stt", (FToJson)tsdbFileToJson, pFg->aFStt);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+  }
   return code;
 }
 
@@ -671,13 +726,22 @@ static int32_t tsdbFileSystemToJson(const STsdbFileSystem *pFS, SJson *pJson) {
   int32_t code = 0;
   int32_t lino = 0;
 
-  tjsonAddIntegerToObject(pJson, "id", pFS->id);
-  if (pFS->fDel) {
-    tjsonAddObject(pJson, "tombstone", (FToJson)tsdbFileToJson, &pFS->fDel->file);
+  if (tjsonAddIntegerToObject(pJson, "id", pFS->id)) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
   }
-  tjsonAddTArray(pJson, "time series", (FToJson)tsdbFileGroupToJson, NULL /* todo */);
+  if (pFS->fDel) {
+    if (tjsonAddObject(pJson, "tombstone", (FToJson)tsdbFileToJson, &pFS->fDel->file) < 0) {
+      code = TSDB_CODE_OUT_OF_MEMORY;
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+  }
+  tjsonAddTArray(pJson, "time-series", (FToJson)tsdbFileGroupToJson, pFS->aFileGroup);
 
 _exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+  }
   return code;
 }
 
@@ -717,6 +781,7 @@ static int32_t tsdbSaveFileSystemToFile(STsdb *pTsdb, STsdbFileSystem *pFileSyst
   char     *jsonStr = NULL;
   TdFilePtr pFD = NULL;
 
+  // json encode
   pJson = tjsonCreateObject();
   if (NULL == pJson) {
     code = TSDB_CODE_OUT_OF_MEMORY;
@@ -732,6 +797,7 @@ static int32_t tsdbSaveFileSystemToFile(STsdb *pTsdb, STsdbFileSystem *pFileSyst
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
+  // write
   pFD = taosOpenFile(fName, TD_FILE_READ | TD_FILE_WRITE | TD_FILE_CREATE | TD_FILE_TRUNC);
   if (NULL == pFD) {
     code = TAOS_SYSTEM_ERROR(errno);

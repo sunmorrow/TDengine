@@ -18,14 +18,15 @@
 #define TSDB_FTYPE_DEL  4  // .del
 #define TSDB_FTYPE_MAX  5
 
-typedef struct TSDBFILE        TSDBFILE;
-typedef struct STsdbFile       STsdbFile;
-typedef struct STsdbFileOp     STsdbFileOp;
-typedef struct STsdbFileWriter STsdbFileWriter;
-typedef struct STsdbFileObj    STsdbFileObj;
-typedef struct STsdbFileArray  STsdbFileArray;
-typedef struct STsdbFileGroup  STsdbFileGroup;
-typedef struct STsdbFileSystem STsdbFileSystem;
+typedef struct TSDBFILE           TSDBFILE;
+typedef struct STsdbFile          STsdbFile;
+typedef struct STsdbFileOp        STsdbFileOp;
+typedef struct STsdbFileWriter    STsdbFileWriter;
+typedef struct STsdbFileObj       STsdbFileObj;
+typedef struct STsdbFileArray     STsdbFileArray;
+typedef struct STsdbFileGroup     STsdbFileGroup;
+typedef struct STsdbFileSystem    STsdbFileSystem;
+typedef struct STsdbFileSystemObj STsdbFileSystemObj;
 
 // TSDBFILE ======================================================
 struct TSDBFILE {
@@ -102,7 +103,7 @@ struct STsdbFileGroup {
   STsdbFileObj *fHead;
   STsdbFileObj *fData;
   STsdbFileObj *fSma;
-  SRBTree       fStt;
+  SArray       *aFStt;
   SRBTreeNode   rbtn;
 };
 
@@ -114,6 +115,12 @@ struct STsdbFileSystem {
   STsdbFileObj    *fDel;
   SArray          *aFileGroup;  // SArray<STsdbFileGroup>
   SArray          *aFileOp;     // SArray<STsdbFileOp>
+};
+
+struct STsdbFileSystemObj {
+  volatile int64_t id;
+  STsdbFileSystem  fs;
+  STsdbFileSystem  nfs;
 };
 
 int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback);

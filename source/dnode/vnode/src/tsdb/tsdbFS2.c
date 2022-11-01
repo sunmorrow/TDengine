@@ -877,7 +877,7 @@ int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP /* SArray<SFileOp *
 
   // sem_wait it can change (todo)
 
-  // copy the operation (todo)
+  // copy the operation
   if (NULL == pFS->aFileOp) {
     pFS->aFileOp = taosArrayInit(taosArrayGetSize(aFileOpP), sizeof(STsdbFileOp));
     if (NULL == pFS->aFileOp) {
@@ -897,6 +897,14 @@ int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP /* SArray<SFileOp *
   }
 
   // save new file system state to current file (todo)
+  // code = tsdbFileSystemCopy(pTsdb->pFS, NULL /*todo*/);
+  // TSDB_CHECK_CODE(code, lino, _exit);
+
+  // code = tsdbFileSystemApplyOp();
+  // TSDB_CHECK_CODE(code, lino, _exit);
+
+  // code = tsdbSaveFileSystemToFile(pTsdb, NULL);
+  // TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {

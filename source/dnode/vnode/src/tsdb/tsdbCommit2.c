@@ -242,7 +242,7 @@ static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextK
   code = tsdbUpdateSkmInfo(pMeta, pTbData->suid, pTbData->uid, -1, &pFlusher->skmTable);
   TSDB_CHECK_CODE(code, lino, _exit);
 
-  // check if need to flush the data (todo)
+  // check if need to flush the data
   if (!TABLE_SAME_SCHEMA(pFlusher->bData.suid, pFlusher->bData.uid, pTbData->suid, pTbData->uid)) {
     code = tsdbFlushBlockData(pFlusher);
     TSDB_CHECK_CODE(code, lino, _exit);
@@ -250,7 +250,7 @@ static int32_t tsdbFlushTableTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextK
     tBlockDataReset(&pFlusher->bData);
   }
 
-  // init the block data (todo)
+  // init the block data
   if (!TABLE_SAME_SCHEMA(pTbData->suid, pTbData->uid, pFlusher->bData.suid, pFlusher->bData.uid)) {
     code = tBlockDataInit(&pFlusher->bData, &id, pFlusher->skmTable.pTSchema, NULL, 0);
     TSDB_CHECK_CODE(code, lino, _exit);
@@ -299,7 +299,7 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
   int32_t lino = 0;
   STsdb  *pTsdb = pFlusher->pTsdb;
 
-  // prepare and set state (todo)
+  // prepare and set state
   pFlusher->fid = tsdbKeyFid(*nextKey, pFlusher->minutes, pFlusher->precision);
   tsdbFidKeyRange(pFlusher->fid, pFlusher->minutes, pFlusher->precision, &pFlusher->minKey, &pFlusher->maxKey);
   if ((NULL == pFlusher->aSttBlk) && ((pFlusher->aSttBlk = taosArrayInit(0, sizeof(SSttBlk))) == NULL)) {

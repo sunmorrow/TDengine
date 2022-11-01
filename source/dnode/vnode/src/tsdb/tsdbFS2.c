@@ -714,10 +714,10 @@ _exit:
 
 static void tsdbFreeFileSystem(STsdbFileSystem *pFileSystem) {
   if (pFileSystem) {
-    if (pFileSystem->aFileOp) {
-      taosArrayDestroy(pFileSystem->aFileOp);
-      pFileSystem->aFileOp = NULL;
-    }
+    // if (pFileSystem->aFileOp) {
+    //   taosArrayDestroy(pFileSystem->aFileOp);
+    //   pFileSystem->aFileOp = NULL;
+    // }
     taosMemoryFree(pFileSystem);
   }
 }
@@ -726,6 +726,7 @@ static int32_t tsdbFileSystemToJson(const STsdbFileSystem *pFS, SJson *pJson) {
   int32_t code = 0;
   int32_t lino = 0;
 
+#if 0
   if (tjsonAddIntegerToObject(pJson, "id", pFS->id)) {
     code = TSDB_CODE_OUT_OF_MEMORY;
     TSDB_CHECK_CODE(code, lino, _exit);
@@ -737,6 +738,7 @@ static int32_t tsdbFileSystemToJson(const STsdbFileSystem *pFS, SJson *pJson) {
     }
   }
   tjsonAddTArray(pJson, "time-series", (FToJson)tsdbFileGroupToJson, pFS->aFileGroup);
+#endif
 
 _exit:
   if (code) {
@@ -968,8 +970,7 @@ int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP /* SArray<SFileOp *
 
   STsdbFileSystem *pFS = pTsdb->pFS;
 
-  // sem_wait it can change (todo)
-
+#if 0
   // copy the operation
   if (NULL == pFS->aFileOp) {
     pFS->aFileOp = taosArrayInit(taosArrayGetSize(aFileOpP), sizeof(STsdbFileOp));
@@ -1004,6 +1005,7 @@ int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP /* SArray<SFileOp *
 
   code = tsdbSaveFileSystemToFile(pTsdb, NULL /* todo */, current_t);
   TSDB_CHECK_CODE(code, lino, _exit);
+#endif
 
 _exit:
   if (code) {
@@ -1017,6 +1019,8 @@ _exit:
 int32_t tsdbFileSystemCommit(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
+
+#if 0
 
   STsdbFileSystem *pFS = pTsdb->pFS;
 
@@ -1041,6 +1045,7 @@ int32_t tsdbFileSystemCommit(STsdb *pTsdb) {
         ASSERT(0);
     }
   }
+#endif
 
 _exit:
   if (code) {
@@ -1064,4 +1069,4 @@ _exit:
   return code;
 }
 
-int64_t tsdbFileSystemNextId(STsdb *pTsdb) { return atomic_add_fetch_64(&pTsdb->pFS->id, 1); }
+int64_t tsdbNextFileID(STsdb *pTsdb) { return atomic_add_fetch_64(&pTsdb->id, 1); }

@@ -134,16 +134,24 @@ struct STsdbFS {
 };
 
 struct STsdb {
-  char            *path;
-  SVnode          *pVnode;
-  STsdbKeepCfg     keepCfg;
-  TdThreadRwlock   rwLock;
-  SMemTable       *mem;
-  SMemTable       *imem;
-  STsdbFS          fs;  // todo: delte
+  char          *path;
+  SVnode        *pVnode;
+  STsdbKeepCfg   keepCfg;
+  TdThreadRwlock rwLock;
+
+  // memtable
+  SMemTable *mem;
+  SMemTable *imem;
+
+  // file system
+  volatile int64_t id;
   STsdbFileSystem *pFS;
-  SLRUCache       *lruCache;
-  TdThreadMutex    lruMutex;
+  STsdbFileSystem *pFSN;
+
+  STsdbFS fs;  // todo: delete
+  // cache
+  SLRUCache    *lruCache;
+  TdThreadMutex lruMutex;
 };
 
 struct TSDBKEY {

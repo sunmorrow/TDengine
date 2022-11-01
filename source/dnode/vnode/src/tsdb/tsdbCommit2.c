@@ -316,7 +316,7 @@ static int32_t tsdbFlushFileTimeSeriesData(STsdbFlusher *pFlusher, TSKEY *nextKe
          .ftype = TSDB_FTYPE_STT,
          .did = {0},  // todo
          .fid = pFlusher->fid,
-         .id = tsdbFileSystemNextId(pTsdb),
+         .id = tsdbNextFileID(pTsdb),
   };
   code = tsdbFileOpCreate(TSDB_FOP_ADD, &file, &pFileOp);
   TSDB_CHECK_CODE(code, lino, _exit);

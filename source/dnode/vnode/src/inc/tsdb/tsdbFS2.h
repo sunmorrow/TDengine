@@ -22,6 +22,7 @@ typedef struct TSDBFILE        TSDBFILE;
 typedef struct STsdbFile       STsdbFile;
 typedef struct STsdbFileOp     STsdbFileOp;
 typedef struct STsdbFileWriter STsdbFileWriter;
+typedef struct STsdbFileReader STsdbFileReader;
 typedef struct STsdbFileObj    STsdbFileObj;
 typedef struct STsdbFileArray  STsdbFileArray;
 typedef struct STsdbFileGroup  STsdbFileGroup;
@@ -90,6 +91,12 @@ struct STsdbFileObj {
 
 #define RBTN_TO_FILE_OBJ(PNODE) ((STsdbFileObj *)(((uint8_t *)PNODE) - offsetof(STsdbFileObj, rbtn)))
 
+// STsdbFileReader ======================================================
+struct STsdbFileReader {
+  STsdbFile file;
+  TSDBFILE *pFILE;
+};
+
 // STsdbFileArray ======================================================
 struct STsdbFileArray {
   int32_t level;
@@ -115,8 +122,8 @@ struct STsdbFileSystem {
 };
 
 int32_t tsdbOpenFS(STsdb *pTsdb, int8_t rollback);
-int32_t tsdbCloseFileSystem(STsdb *pTsdb);
-int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP);
-int32_t tsdbFileSystemCommit(STsdb *pTsdb);
-int32_t tsdbFileSystemRollback(STsdb *pTsdb);
+int32_t tsdbCloseFS(STsdb *pTsdb);
+int32_t tsdbPrepareFS(STsdb *pTsdb, SArray *aFileOpP);
+int32_t tsdbCommitFS(STsdb *pTsdb);
+int32_t tsdbRollbackFS(STsdb *pTsdb);
 int64_t tsdbNextFileID(STsdb *pTsdb);

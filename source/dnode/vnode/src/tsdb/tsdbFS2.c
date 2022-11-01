@@ -1055,7 +1055,7 @@ _exit:
   return code;
 }
 
-int32_t tsdbCloseFileSystem(STsdb *pTsdb) {
+int32_t tsdbCloseFS(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
 #if 0
@@ -1121,48 +1121,24 @@ _exit:
   return code;
 }
 
-int32_t tsdbFileSystemPrepare(STsdb *pTsdb, SArray *aFileOpP /* SArray<SFileOp *> */) {
+int32_t tsdbPrepareFS(STsdb *pTsdb, SArray *aFileOpP) {
   int32_t code = 0;
   int32_t lino = 0;
 
-  STsdbFileSystem *pFS = pTsdb->pFS;
+  // apply change to pTsdb->pFSN
+  for (int32_t iFileOp = 0; iFileOp < taosArrayGetSize(aFileOpP); iFileOp++) {
+    STsdbFileOp *pOp = (STsdbFileOp *)taosArrayGetP(aFileOpP, iFileOp);
 
-#if 0
-  // copy the operation
-  if (NULL == pFS->aFileOp) {
-    pFS->aFileOp = taosArrayInit(taosArrayGetSize(aFileOpP), sizeof(STsdbFileOp));
-    if (NULL == pFS->aFileOp) {
-      code = TSDB_CODE_OUT_OF_MEMORY;
-      TSDB_CHECK_CODE(code, lino, _exit);
-    }
-  } else {
-    taosArrayClear(pFS->aFileOp);
-  }
-
-  for (int32_t iFileOpP = 0; iFileOpP < taosArrayGetSize(aFileOpP); iFileOpP++) {
-    STsdbFileOp *pOp = (STsdbFileOp *)taosArrayGetP(aFileOpP, iFileOpP);
-    if (NULL == taosArrayPush(pFS->aFileOp, pOp)) {
-      code = TSDB_CODE_OUT_OF_MEMORY;
-      TSDB_CHECK_CODE(code, lino, _exit);
-    }
-  }
-
-  // save new file system state to current file (todo)
-  // code = tsdbFileSystemCopy(pTsdb->pFS, NULL /*todo*/);
-  // TSDB_CHECK_CODE(code, lino, _exit);
-
-  for (int32_t iFileOp = 0; iFileOp < taosArrayGetSize(pFS->aFileOp); iFileOp++) {
-    STsdbFileOp *pOp = (STsdbFileOp *)taosArrayGet(pFS->aFileOp, iFileOp);
-    code = tsdbFileSystemApplyOp(NULL /* todo */, pOp);
+    code = tsdbFileSystemApplyOp(pTsdb->pFSN, pOp);
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
+  // save to current_t
   char current_t[TSDB_FILENAME_LEN] = {0};
   tsdbCurrentFileName(pTsdb, NULL, current_t);
 
-  code = tsdbSaveFileSystemToFile(pTsdb, NULL /* todo */, current_t);
+  code = tsdbSaveFileSystemToFile(pTsdb, pTsdb->pFSN, current_t);
   TSDB_CHECK_CODE(code, lino, _exit);
-#endif
 
 _exit:
   if (code) {
@@ -1173,36 +1149,21 @@ _exit:
   return code;
 }
 
-int32_t tsdbFileSystemCommit(STsdb *pTsdb) {
+int32_t tsdbCommitFS(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
 
-#if 0
+  char current[TSDB_FILENAME_LEN] = {0};
+  char current_t[TSDB_FILENAME_LEN] = {0};
+  tsdbCurrentFileName(pTsdb, current, current_t);
 
-  STsdbFileSystem *pFS = pTsdb->pFS;
-
-  // rename file(todo)
-  // taosRenameFile():
-
-  // apply change to file system
-  for (int32_t iFileOp = 0; iFileOp < taosArrayGetSize(pFS->aFileOp); iFileOp++) {
-    STsdbFileOp *pOp = (STsdbFileOp *)taosArrayGet(pFS->aFileOp, iFileOp);
-
-    switch (pOp->op) {
-      case TSDB_FOP_ADD:
-        /* code */
-        break;
-      case TSDB_FOP_REMOVE:
-        /* code */
-        break;
-      case TSDB_FOP_MOD:
-        /* code */
-        break;
-      default:
-        ASSERT(0);
-    }
+  if (taosRenameFile(current_t, current) < 0) {
+    code = TAOS_SYSTEM_ERROR(errno);
+    TSDB_CHECK_CODE(code, lino, _exit);
   }
-#endif
+
+  code = tsdbApplyNewFS(pTsdb);
+  TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {
@@ -1213,15 +1174,22 @@ _exit:
   return code;
 }
 
-int32_t tsdbFileSystemRollback(STsdb *pTsdb) {
+int32_t tsdbRollbackFS(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  // remove current_t
+  char current_t[TSDB_FILENAME_LEN] = {0};
+  tsdbCurrentFileName(pTsdb, NULL, current_t);
+  (void)taosRemoveFile(current_t);
+
+  // rollback the change (todo)
+
 _exit:
   if (code) {
-    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
   } else {
-    tsdbTrace("%s done", __func__);
+    tsdbTrace("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
   }
   return code;
 }

@@ -443,7 +443,7 @@ int32_t tsdbFlush(STsdb *pTsdb) {
   }
 
   // apply change
-  code = tsdbFileSystemPrepare(pTsdb, flusher.aFileOpP);
+  code = tsdbPrepareFS(pTsdb, flusher.aFileOpP);
   TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
@@ -457,10 +457,85 @@ _exit:
 
 // MERGE MULTIPLE STT ===================================
 typedef struct {
-  STsdb *pTsdb;
-  // data
+  SRowInfo         rInfo;
+  SArray          *aSttBlk;
+  int32_t          iSttBlk;
+  SBlockData       bData;
+  SRBTreeNode      rbtn;
+  STsdbFileReader *pReader;
+} SSttDataIter;
+
+typedef struct {
+  STsdb     *pTsdb;
+  SRBTree    mergeTree;
+  SBlockData bData;
+  SArray    *aFileOpP;
 } STsdbMerger;
 
+// SSttDataIter
+static int32_t tsdbSttDataIterNext(SSttDataIter *pIter) {
+  int32_t code = 0;
+  int32_t lino = 0;
+  // TODO
+_exit:
+  return code;
+}
+
+static int32_t tsdbSttDataIterCreate(STsdbFile *pFile, SSttDataIter **ppIter) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  SSttDataIter *pIter = (SSttDataIter *)taosMemoryCalloc(1, sizeof(*pIter));
+  if (NULL == pIter) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  pIter->aSttBlk = taosArrayInit(0, sizeof(SSttBlk));
+  if (NULL == pIter->aSttBlk) {
+    code = TSDB_CODE_OUT_OF_MEMORY;
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+  code = tBlockDataCreate(&pIter->bData);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  code = tsdbSttDataIterNext(pIter);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+_exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+    *ppIter = NULL;
+
+    if (pIter) {
+      if (pIter->aSttBlk) {
+        taosArrayDestroy(pIter->aSttBlk);
+      }
+      taosMemoryFree(pIter);
+    }
+  } else {
+    *ppIter = pIter;
+  }
+  return code;
+}
+
+static void tsdbSttDataIterDestroy(SSttDataIter *pIter) {
+  if (pIter) {
+    tBlockDataDestroy(&pIter->bData, 1);
+    if (pIter->aSttBlk) {
+      taosArrayDestroy(pIter->aSttBlk);
+    }
+    taosMemoryFree(pIter);
+  }
+}
+
+static SRowInfo *tsdbSttDataIterGet(SSttDataIter *pIter) {
+  // todo
+  return NULL;
+}
+
+// STsdbMerger
 static int32_t tsdbMergerInit(STsdb *pTsdb, STsdbMerger **ppMerger) {
   int32_t code = 0;
   int32_t lino = 0;
@@ -488,7 +563,7 @@ static void tsdbMergerClear(STsdbMerger *pMerger) {
   }
 }
 
-static int32_t tsdbMergeFileGroup(STsdbMerger *pMerger, int32_t fid) {
+static int32_t tsdbMergeFileGroup(STsdbMerger *pMerger, STsdbFileGroup *pFg) {
   int32_t code = 0;
   int32_t lino = 0;
 
@@ -498,33 +573,52 @@ _exit:
   if (code) {
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
   } else {
-    tsdbDebug("vgId:%d %s done, fid:%d", TD_VID(pTsdb->pVnode), __func__, fid);
+    tsdbDebug("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
   }
   return code;
 }
 
-int32_t tsdbMerge(STsdb *pTsdb, int32_t *aFid, int32_t nFid) {
+int32_t tsdbMerge(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
 
-  // init merger (todo)
-  STsdbMerger *pMerger = NULL;
-  code = tsdbMergerInit(pTsdb, &pMerger);
-  TSDB_CHECK_CODE(code, lino, _exit);
+  STsdbFileSystem *pFS = pTsdb->pFS;  // todo
+  int32_t          sttTrigger = pTsdb->pVnode->config.sttTrigger;
+  STsdbMerger     *pMerger = NULL;
 
-  // loop to merge
-  for (int32_t iFid = 0; iFid < nFid; iFid++) {
-    code = tsdbMergeFileGroup(pMerger, aFid[iFid]);
+  for (int32_t iFg = 0; iFg < taosArrayGetSize(pFS->aFileGroup); iFg++) {
+    STsdbFileGroup *pFg = (STsdbFileGroup *)taosArrayGet(pFS->aFileGroup, iFg);
+
+    if (taosArrayGetSize(pFg->aFStt) >= sttTrigger) {
+      if (NULL == pMerger) {
+        code = tsdbMergerInit(pTsdb, &pMerger);
+        TSDB_CHECK_CODE(code, lino, _exit);
+      }
+
+      code = tsdbMergeFileGroup(pMerger, pFg);
+      TSDB_CHECK_CODE(code, lino, _exit);
+    }
+  }
+
+  if (pMerger) {
+    code = tsdbPrepareFS(pTsdb, pMerger->aFileOpP);
+    TSDB_CHECK_CODE(code, lino, _exit);
+
+    code = tsdbCommitFS(pTsdb);
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
-  // commit file change (todo)
 _exit:
   if (code) {
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
   }
-  tsdbMergerClear(pMerger);
+
+  if (pMerger) {
+    tsdbMergerClear(pMerger);
+  }
   return code;
 }
+
+// RETENTION ===================================
 
 // TRANSACTION CONTROL ===================================

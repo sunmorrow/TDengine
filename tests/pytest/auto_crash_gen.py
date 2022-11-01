@@ -269,7 +269,7 @@ def run_crash_gen(crash_cmds):
 
     # run crash_gen and back logs
     os.system('echo "%s">>%s'%(crash_cmds,crash_gen_cmds_file))
-    os.system("%s >>%s "%(crash_cmds,result_file))
+    os.system("%s>>%s "%(crash_cmds,result_file))
 
 
 def check_status():

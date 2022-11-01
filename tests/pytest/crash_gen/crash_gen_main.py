@@ -254,7 +254,7 @@ class WorkerThread:
 
 
 class ThreadCoordinator:
-    WORKER_THREAD_TIMEOUT = 120  # Normal: 120
+    WORKER_THREAD_TIMEOUT = 1200  # Normal: 1200
 
     def __init__(self, pool: ThreadPool, dbManager: DbManager):
         self._curStep = -1  # first step is 0
@@ -1342,6 +1342,11 @@ class Task():
                 0x2603, # Table does not exist, replaced by 2662 below
                 0x260d, # Tags number not matched
                 0x2662, # Table does not exist #TODO: what about 2603 above?
+                0x032C, # Object is creating
+                0x032D, # Object is dropping
+                0x03D3, # Conflict transaction not completed
+                0x0707, # Query not ready , it always occur at replica 3
+                0x707,
 
 
 
@@ -1638,7 +1643,7 @@ class TaskCreateDb(StateTransitionTask):
             # numReplica = Dice.throw(Settings.getConfig().max_replicas) + 1 # 1,2 ... N
             numReplica = Config.getConfig().num_replicas # fixed, always
             repStr = "replica {}".format(numReplica)
-        updatePostfix = "update 1" if Config.getConfig().verify_data else "" # allow update only when "verify data" is active
+        updatePostfix = "" if Config.getConfig().verify_data else "" # allow update only when "verify data" is active , 3.0 version default is update 1 
         dbName = self._db.getName()
         self.execWtSql(wt, "create database {} {} {} ".format(dbName, repStr, updatePostfix ) )
         if dbName == "db_0" and Config.getConfig().use_shadow_db:

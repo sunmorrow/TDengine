@@ -112,8 +112,8 @@ struct STsdbFileGroup {
 struct STsdbFileSystem {
   volatile int64_t id;
   STsdbFileObj    *fDel;
-  SRBTree          fGroup;   // SArray<STsdbFileGroup>
-  SArray          *aFileOp;  // SArray<STsdbFileOp>
+  SArray          *aFileGroup;  // SArray<STsdbFileGroup>
+  SArray          *aFileOp;     // SArray<STsdbFileOp>
 };
 
 int32_t tsdbOpenFileSystem(STsdb *pTsdb, int8_t rollback);

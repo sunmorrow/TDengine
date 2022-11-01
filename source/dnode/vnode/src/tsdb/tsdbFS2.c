@@ -648,8 +648,6 @@ static int32_t tsdbNewFileSystem(STsdbFileSystem **ppFileSystem) {
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
-  tRBTreeCreate(&pFileSystem->fGroup, tsdbFileGroupCmprFn);
-
 _exit:
   if (code) {
     *ppFileSystem = NULL;
@@ -835,6 +833,7 @@ _exit:
 int32_t tsdbCloseFileSystem(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
+#if 0
 
   if (NULL == pTsdb->pFS) return code;
 
@@ -886,6 +885,7 @@ int32_t tsdbCloseFileSystem(STsdb *pTsdb) {
   }
 
   tsdbFreeFileSystem(pFS);
+#endif
 
 _exit:
   if (code) {

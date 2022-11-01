@@ -923,6 +923,9 @@ static int32_t tsdbScanAndTryFixFileSystem(STsdb *pTsdb) {
   int32_t lino = 0;
   // TODO
 _exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  }
   return code;
 }
 
@@ -931,6 +934,9 @@ static int32_t tsdbFileSystemApplyOp(STsdbFileSystem *pFS, const STsdbFileOp *pO
   int32_t lino = 0;
   // TODO
 _exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  }
   return code;
 }
 

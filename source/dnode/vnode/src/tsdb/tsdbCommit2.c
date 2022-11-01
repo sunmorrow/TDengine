@@ -536,7 +536,7 @@ static SRowInfo *tsdbSttDataIterGet(SSttDataIter *pIter) {
 }
 
 // STsdbMerger
-static int32_t tsdbMergerInit(STsdb *pTsdb, STsdbMerger **ppMerger) {
+static int32_t tsdbMergerOpen(STsdb *pTsdb, STsdbMerger **ppMerger) {
   int32_t code = 0;
   int32_t lino = 0;
 
@@ -557,7 +557,7 @@ _exit:
   return code;
 }
 
-static void tsdbMergerClear(STsdbMerger *pMerger) {
+static void tsdbMergerClose(STsdbMerger *pMerger) {
   if (pMerger) {
     taosMemoryFree(pMerger);
   }
@@ -591,7 +591,7 @@ int32_t tsdbMerge(STsdb *pTsdb) {
 
     if (taosArrayGetSize(pFg->aFStt) >= sttTrigger) {
       if (NULL == pMerger) {
-        code = tsdbMergerInit(pTsdb, &pMerger);
+        code = tsdbMergerOpen(pTsdb, &pMerger);
         TSDB_CHECK_CODE(code, lino, _exit);
       }
 
@@ -614,7 +614,7 @@ _exit:
   }
 
   if (pMerger) {
-    tsdbMergerClear(pMerger);
+    tsdbMergerClose(pMerger);
   }
   return code;
 }

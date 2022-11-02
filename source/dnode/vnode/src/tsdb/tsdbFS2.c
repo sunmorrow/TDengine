@@ -728,6 +728,12 @@ _exit:
   if (code) {
     tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
     *ppFS = NULL;
+    if (pFS) {
+      if (pFS->aFileGroup) {
+        taosArrayDestroy(pFS->aFileGroup);
+      }
+      taosMemoryFree(pFS);
+    }
   } else {
     *ppFS = pFS;
   }
@@ -932,10 +938,27 @@ _exit:
 static int32_t tsdbFileSystemApplyOp(STsdbFileSystem *pFS, const STsdbFileOp *pOp) {
   int32_t code = 0;
   int32_t lino = 0;
-  // TODO
+
+  if (TSDB_FTYPE_STT == pOp->file.ftype) {
+    // TODO
+    ASSERT(0);
+  } else {
+    if (TSDB_FOP_ADD == pOp->op) {
+      // todo
+    } else {
+      if (TSDB_FOP_REMOVE == pOp->op) {
+        /* TODO */
+      } else if (TSDB_FOP_MOD == pOp->op) {
+        /* TODO */
+      } else {
+        ASSERT(0);
+      }
+    }
+  }
+
 _exit:
   if (code) {
-    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
   }
   return code;
 }

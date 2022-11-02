@@ -446,6 +446,8 @@ int32_t tsdbFlush(STsdb *pTsdb) {
   code = tsdbPrepareFS(pTsdb, flusher.aFileOpP);
   TSDB_CHECK_CODE(code, lino, _exit);
 
+  // schedule compact if need (todo)
+
 _exit:
   if (code) {
     tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));

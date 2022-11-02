@@ -85,11 +85,8 @@ int32_t tsdbFileAppend(STsdbFileWriter *pWriter, const uint8_t *pBuf, int64_t si
 // STsdbFileObj ======================================================
 struct STsdbFileObj {
   volatile int32_t nRef;
-  SRBTreeNode      rbtn;
   STsdbFile        file;
 };
-
-#define RBTN_TO_FILE_OBJ(PNODE) ((STsdbFileObj *)(((uint8_t *)PNODE) - offsetof(STsdbFileObj, rbtn)))
 
 // STsdbFileReader ======================================================
 struct STsdbFileReader {
@@ -110,15 +107,12 @@ struct STsdbFileGroup {
   STsdbFileObj *fData;
   STsdbFileObj *fSma;
   SArray       *aFStt;
-  SRBTreeNode   rbtn;
 };
-
-#define RBTN_TO_FILE_GROUP(PNODE) ((STsdbFileGroup *)(((uint8_t *)PNODE) - offsetof(STsdbFileGroup, rbtn)))
 
 // STsdbFileSystem ======================================================
 struct STsdbFileSystem {
   STsdbFileObj *fDel;
-  SArray       *aFileGroup;
+  SArray       *aFileGroup;  // SArray<SFileGroup>
 };
 
 int32_t tsdbOpenFS(STsdb *pTsdb, int8_t rollback);

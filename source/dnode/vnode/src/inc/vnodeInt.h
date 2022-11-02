@@ -150,20 +150,21 @@ typedef struct {
 int32_t metaGetStbStats(SMeta* pMeta, int64_t uid, SMetaStbStats* pInfo);
 
 // tsdb
-int         tsdbOpen(SVnode* pVnode, STsdb** ppTsdb, const char* dir, STsdbKeepCfg* pKeepCfg, int8_t rollback);
-int         tsdbClose(STsdb** pTsdb);
-int32_t     tsdbBegin(STsdb* pTsdb);
-int32_t     tsdbCommit(STsdb* pTsdb);
-int32_t     tsdbFlush(STsdb* pTsdb);
-int32_t     tsdbFinishCommit(STsdb* pTsdb);
-int32_t     tsdbRollbackCommit(STsdb* pTsdb);
-int32_t     tsdbDoRetention(STsdb* pTsdb, int64_t now);
-int         tsdbScanAndConvertSubmitMsg(STsdb* pTsdb, SSubmitReq* pMsg);
-int         tsdbInsertData(STsdb* pTsdb, int64_t version, SSubmitReq* pMsg, SSubmitRsp* pRsp);
-int32_t     tsdbInsertTableData(STsdb* pTsdb, int64_t version, SSubmitMsgIter* pMsgIter, SSubmitBlk* pBlock,
-                                SSubmitBlkRsp* pRsp);
-int32_t     tsdbDeleteTableData(STsdb* pTsdb, int64_t version, tb_uid_t suid, tb_uid_t uid, TSKEY sKey, TSKEY eKey);
-int32_t     tsdbSetKeepCfg(STsdb* pTsdb, STsdbCfg* pCfg);
+int     tsdbOpen(SVnode* pVnode, STsdb** ppTsdb, const char* dir, STsdbKeepCfg* pKeepCfg, int8_t rollback);
+int     tsdbClose(STsdb** pTsdb);
+int32_t tsdbBegin(STsdb* pTsdb);
+int32_t tsdbCommit(STsdb* pTsdb);
+int32_t tsdbFlush(STsdb* pTsdb);
+int32_t tsdbFlushCommit(STsdb* pTsdb);
+int32_t tsdbFinishCommit(STsdb* pTsdb);
+int32_t tsdbRollbackCommit(STsdb* pTsdb);
+int32_t tsdbDoRetention(STsdb* pTsdb, int64_t now);
+int     tsdbScanAndConvertSubmitMsg(STsdb* pTsdb, SSubmitReq* pMsg);
+int     tsdbInsertData(STsdb* pTsdb, int64_t version, SSubmitReq* pMsg, SSubmitRsp* pRsp);
+int32_t tsdbInsertTableData(STsdb* pTsdb, int64_t version, SSubmitMsgIter* pMsgIter, SSubmitBlk* pBlock,
+                            SSubmitBlkRsp* pRsp);
+int32_t tsdbDeleteTableData(STsdb* pTsdb, int64_t version, tb_uid_t suid, tb_uid_t uid, TSKEY sKey, TSKEY eKey);
+int32_t tsdbSetKeepCfg(STsdb* pTsdb, STsdbCfg* pCfg);
 
 // tq
 int     tqInit();

@@ -121,3 +121,4 @@ int32_t tsdbPrepareFS(STsdb *pTsdb, SArray *aFileOpP);
 int32_t tsdbCommitFS(STsdb *pTsdb);
 int32_t tsdbRollbackFS(STsdb *pTsdb);
 int64_t tsdbNextFileID(STsdb *pTsdb);
+bool    tsdbShouldMerge(STsdb *pTsdb);

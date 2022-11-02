@@ -275,8 +275,13 @@ int vnodeCommit(SVnode *pVnode) {
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
+#if 0
   code = tsdbFinishCommit(pVnode->pTsdb);
   TSDB_CHECK_CODE(code, lino, _exit);
+#else
+  code = tsdbFlushCommit(pVnode->pTsdb);
+  TSDB_CHECK_CODE(code, lino, _exit);
+#endif
 
   if (VND_IS_RSMA(pVnode)) {
     code = smaFinishCommit(pVnode->pSma);

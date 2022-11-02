@@ -628,6 +628,23 @@ static int32_t tsdbUnrefFileObj(STsdb *pTsdb, STsdbFileObj *pFileObj, int8_t rem
 static int32_t tsdbFileObjPToJson(const STsdbFileObj **ppFileObj, SJson *pJson) {
   return tsdbFileToJson(&(*ppFileObj)->file, pJson);
 }
+
+static int32_t tsdbJsonToFileObjP(const SJson *pJson, STsdbFileObj **ppFileObj) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  STsdbFile file = {0};
+  tsdbJsonToFile(pJson, &file);
+
+  code = tsdbNewFileObj(&file, ppFileObj);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+_exit:
+  if (code) {
+    tsdbError("%s failed at line %d since %s", __func__, lino, tstrerror(code));
+  }
+  return code;
+}
 // STsdbFileArray ======================================================
 
 // STsdbFileGroup ==========================================
@@ -719,9 +736,8 @@ static int32_t tsdbJsonToFileGroup(const SJson *pJson, STsdbFileGroup *pFg) {
     TSDB_CHECK_CODE(code, lino, _exit);
   }
 
-  if (0 == tjsonToTArray(pJson, "stt", (FToObject)tsdbFileToJson, &pFg->aFStt, 0 /* todo */)) {
-    // todo
-  }
+  code = tjsonToTArray(pJson, "stt", (FToObject)tsdbJsonToFileObjP, &pFg->aFStt, sizeof(STsdbFileObj *));
+  TSDB_CHECK_CODE(code, lino, _exit);
 
 _exit:
   if (code) {
@@ -951,6 +967,7 @@ static int32_t tsdbLoadFileSystemFromFile(STsdb *pTsdb, const char *fName, STsdb
     code = TAOS_SYSTEM_ERROR(errno);
     TSDB_CHECK_CODE(code, lino, _exit);
   }
+  jsonStr[size] = '\0';
 
   pJson = tjsonParse(jsonStr);
   if (NULL == pJson) {
@@ -1339,3 +1356,8 @@ _exit:
 }
 
 int64_t tsdbNextFileID(STsdb *pTsdb) { return atomic_add_fetch_64(&pTsdb->id, 1); }
+
+bool tsdbShouldMerge(STsdb *pTsdb) {
+  // TODO
+  return false;
+}

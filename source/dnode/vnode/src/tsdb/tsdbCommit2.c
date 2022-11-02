@@ -404,6 +404,8 @@ _exit:
   return code;
 }
 
+static int32_t tsdbMerge(STsdb *pTsdb);
+
 int32_t tsdbFlush(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
@@ -454,6 +456,57 @@ _exit:
     // todo (do some rollback)
   }
   tsdbFlusherClear(&flusher);
+  return code;
+}
+
+int32_t tsdbFlushCommit(STsdb *pTsdb) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  SMemTable *pMemTable = pTsdb->imem;
+  if (NULL == pMemTable) {
+    return code;
+  }
+
+  // commit
+  taosThreadRwlockWrlock(&pTsdb->rwLock);
+
+  code = tsdbCommitFS(pTsdb);
+  TSDB_CHECK_CODE(code, lino, _exit);
+
+  pTsdb->imem = NULL;
+
+  taosThreadRwlockUnlock(&pTsdb->rwLock);
+
+  tsdbUnrefMemTable(pMemTable);
+
+  // schedule merge (todo)
+  if (tsdbShouldMerge(pTsdb)) {
+    code = tsdbMerge(pTsdb);
+    TSDB_CHECK_CODE(code, lino, _exit);
+  }
+
+_exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  } else {
+    tsdbDebug("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
+  }
+  return code;
+}
+
+int32_t tsdbFlushRollback(STsdb *pTsdb) {
+  int32_t code = 0;
+  int32_t lino = 0;
+
+  ASSERT(0);
+
+_exit:
+  if (code) {
+    tsdbError("vgId:%d %s failed at line %d since %s", TD_VID(pTsdb->pVnode), __func__, lino, tstrerror(code));
+  } else {
+    tsdbDebug("vgId:%d %s done", TD_VID(pTsdb->pVnode), __func__);
+  }
   return code;
 }
 
@@ -580,7 +633,7 @@ _exit:
   return code;
 }
 
-int32_t tsdbMerge(STsdb *pTsdb) {
+static int32_t tsdbMerge(STsdb *pTsdb) {
   int32_t code = 0;
   int32_t lino = 0;
 

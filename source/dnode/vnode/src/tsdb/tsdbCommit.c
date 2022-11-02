@@ -1679,32 +1679,3 @@ _exit:
   }
   return code;
 }
-
-// ========================= ASYNC MERGE =========================
-typedef struct {
-  // data
-} STsdbMerger;
-
-static int32_t tsdbMerge(STsdb *pTsdb, int32_t *aFid, int32_t nFid) {
-  int32_t code = 0;
-  int32_t lino = 0;
-
-  for (int32_t iFid = 0; iFid < nFid; iFid++) {
-    int32_t fid = aFid[iFid];
-
-    // open a new file
-
-    // loop to merge all stt files
-    for (;;) {
-      break;
-    }
-  }
-
-  // apply delete
-  // 1. write FS + DELTA to CURRENT.t
-  // 2. rename CURRENT.t to CURRENT
-  // 3. do apply
-
-_exit:
-  return code;
-}
